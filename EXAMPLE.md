@@ -47,3 +47,7 @@ Antes do lançamento, `devops-sre` propõe deploy/rollback, SLOs, alertas, runbo
 ## 10. Fechamento e melhoria do processo
 
 O líder só encerra com critérios e gates aplicáveis evidenciados, pendências e itens fora de escopo declarados. Mensalmente, a equipe observa aprovação na primeira revisão, reabertura de achados, cobertura de evidências, rodadas de esclarecimento e tempo por fase. Mede baseline antes de estabelecer metas e usa os dados para melhorar o sistema, não pontuar indivíduos.
+
+## 11. Compra empresarial faturada
+
+Para comprar mercadorias de qualquer categoria legal para revenda com boleto faturado, o líder encaminha `cnpj-boleto-buyer` com objetivo, empresa/CNPJ, itens ou parâmetros de busca, destino e limites. O agente pesquisa fornecedores, compara custo total e condições, verifica riscos e prepara localmente os campos/documentos de cadastro e o resumo do pedido. Como os perfis TOML não aplicam autorização determinística às ferramentas externas, a pessoa responsável confere as fontes e conclui pessoalmente cadastro e pedido. Produtos regulados/ilegais, compartilhamento não autorizado de documentos, crédito/garantia pessoal e pagamento de boleto são encaminhados para decisão humana; o agente nunca afirma que concluiu uma ação externa.
