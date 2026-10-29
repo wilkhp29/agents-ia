@@ -13,6 +13,7 @@ Este repositório contém agentes globais do Codex preparados para serem version
 | `software-architect` | Arquitetura, stack, trade-offs e riscos técnicos. |
 | `software-engineer` | Implementação aprovada, testes e entrega técnica. |
 | `product-growth` | SEO, aquisição e campanhas pagas sob autorização. |
+| `commercial-strategy` | Estratégia comercial, precificação, planos, pacotes e monetização, com premissas e validação explícitas. |
 | `data-analyst` | Métricas, eventos, funis, qualidade de dados e experimentos. |
 | `governance-specialist` | Riscos, controles, responsabilidades, privacidade e governança de IA/produto. |
 | `devops-sre` | Deploy, confiabilidade, observabilidade, custos, recuperação e resposta a incidentes. |
