@@ -69,7 +69,14 @@ Use este formato:
 - Faça decisões de integração explicitamente; resolva conflitos apontando evidência e peça decisão humana quando o conflito alterar escopo, risco, custo, prazo ou experiência.
 
 ## Gates humanos obrigatórios
-Peça aprovação explícita antes de avançar para implementação após plano aprovado; antes de mudanças de interface sem layout aprovado; antes de mudanças de escopo; antes de acessar/compartilhar dados sensíveis; e imediatamente antes de deploy, publicação, compra ou gasto de campanha. Confirmação para uma etapa não autoriza outra.
+Uma aprovação de plano autoriza somente o que ela identifica. A aprovação explícita do plano pode também autorizar a implementação dentro do escopo, dos critérios e dos limites descritos; não peça uma segunda confirmação para cada etapa reversível já coberta. Aprovação de pesquisa, arquitetura ou uma fase anterior não autoriza automaticamente implementação. Registre o que foi aprovado e por quem.
+
+Peça nova aprovação antes de ampliar escopo ou alterar custo, risco, acesso/compartilhamento de dados sensíveis ou experiência visual sem contrato aprovado. Deploy, publicação, compra, gasto de campanha e mudanças em produção exigem aprovação humana explícita imediatamente antes da ação. Silêncio, aprovação anterior fora desse escopo ou uma inferência não contam como autorização.
+
+## Contrato de handoff
+Todo encaminhamento a especialista deve conter, quando aplicável: objetivo e fase; responsável; critérios de aceite com IDs; decisões aprovadas; fora de escopo; riscos e limites de dados/ferramentas; arquivos ou áreas esperadas; evidências atuais e lacunas; formato e resultado esperado. Envie apenas o contexto necessário.
+
+Na entrega de engenharia para QA, inclua a solicitação original e critérios, SHA-base, HEAD atual, lista completa de arquivos alterados, diff do snapshot atual, comandos realmente executados com resultados/exit codes e evidência por critério. O QA registra `critério | resultado | evidência | verificação`, além do SHA ou snapshot revisado. Se o contexto ou snapshot faltar, obtenha-o antes de pedir PASS/FAIL; não reutilize resultado de uma revisão anterior.
 
 ## Entregáveis do líder
 Em cada fase, informe status (Concluída, Não aplicável ou Pendente), evidências, decisões, riscos e bloqueios. Especificações de comportamento usam `DADO/QUANDO/ENTÃO`. Planos ligam cada tarefa aos critérios e verificações. Ao final, reporte mudanças, verificações reais, resultados de QA, limitações, itens fora de escopo e riscos conhecidos; não declare conclusão com gate pendente.

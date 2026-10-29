@@ -1,17 +1,17 @@
 # Equipe de agentes para produtos digitais
 
-Este repositório contém agentes globais do Codex preparados para serem versionados no Git e instalados em qualquer computador. O líder coordena o trabalho usando o processo `sdd-layout-ecc`; os especialistas são chamados sob demanda.
+Este repositório contém agentes globais do Codex versionados no Git. O líder coordena o processo `sdd-layout-ecc`; especialistas são acionados sob demanda quando agregam valor.
 
 ## Agents
 
 | Agent | Responsabilidade |
 |---|---|
-| `product-lead` | Conduz SDD, coordena o trabalho e controla aprovações humanas. |
+| `product-lead` | Conduz SDD, coordena especialistas e administra aprovações humanas. |
 | `product-manager` | Problema, usuários, MVP e critérios de aceite. |
 | `product-designer` | Descoberta UX/UI, brief e contrato visual aprovado antes de implementação. |
 | `deep-researcher` | Pesquisa de mercado com fontes, metodologia e incerteza explícitas. |
 | `software-architect` | Arquitetura, stack, trade-offs e riscos técnicos. |
-| `software-engineer` | Implementação aprovada, testes e entrega técnica. |
+| `software-engineer` | Implementação aprovada, verificações e entrega técnica. |
 | `product-growth` | SEO, aquisição e campanhas pagas sob autorização. |
 | `commercial-strategy` | Estratégia comercial, precificação, planos, pacotes e monetização, com premissas e validação explícitas. |
 | `data-analyst` | Métricas, eventos, funis, qualidade de dados e experimentos. |
@@ -34,21 +34,44 @@ O instalador preserva arquivos existentes por padrão. Se houver conflito de nom
 
 Atualize o repositório via Git, revise as mudanças e execute novamente o instalador. Use `--replace` somente se aceitar substituir os agentes de mesmo nome.
 
-## Fluxo sugerido
+## Fluxo padrão
 
-1. Acione `product-lead` e descreva sua ideia. Ele fará descoberta e conduzirá as aprovações do `sdd-layout-ecc`.
-2. Após aprovação dos critérios e limites, peça ao líder que recomende um especialista e passe o contexto necessário. A equipe não encadeia especialistas automaticamente por padrão.
-3. Quando houver interface, use `product-designer` para preparar e obter aprovação do brief/contrato visual antes de passar trabalho de UI para engenharia.
-4. Aprove o plano antes da implementação. O líder pode encaminhar requisitos a `software-architect`, `software-engineer`, `product-growth` e `product-qa` em fases adequadas. O engenheiro deve verificar o fluxo Git do repositório e consultar a fonte de conhecimento antes de codificar quando disponível.
-5. Exija evidências reais de pesquisa e validação. `domain-specialist` deve declarar domínio, jurisdição, fontes e limites. Deploy, publicação, gastos de anúncios, mudanças de escopo e acesso a dados sensíveis exigem aprovação humana explícita.
-6. Após cada bloco do engenheiro, o líder encaminha diff e saídas reais ao `product-qa`. Em `FAIL`, o engenheiro corrige e reexecuta verificações; o líder solicita nova revisão somente com snapshot/evidência atualizados. Só avance com `PASS`; respeite bloqueios e limites de tentativas configurados.
+### Git Flow
 
-Consulte [EXAMPLE.md](EXAMPLE.md) para um cenário ilustrativo. Ele mostra perguntas e entregáveis, não evidência de mercado real.
+Git Flow é o padrão para todos os repositórios Git desta equipe. Inspecione as instruções e o histórico antes de criar branches. Use `main` ou `master` como linha primária; crie `develop` localmente a partir da linha-base correta quando ela não existir; crie `feature/<slug>` a partir de `develop` para funcionalidades e `hotfix/<slug>` para correções urgentes da linha de produção. Se histórico, upstream ou alterações locais tornarem a base ambígua, preserve o estado e peça orientação ao líder. Não faça push, merge, release ou ação remota crítica sem autorização explícita.
+
+### Fases, aprovações e handoffs
+
+1. Acione `product-lead` com a ideia. Ele conduz descoberta, critérios verificáveis, limites e as fases aplicáveis do `sdd-layout-ecc`.
+2. Encaminhe trabalho a especialistas quando a especialidade melhorar materialmente o resultado. O líder informa quando um agente ou ferramenta necessário não está disponível e continua com a alternativa segura possível.
+3. Para interface, aprove o brief/contrato visual antes da implementação visual. A aprovação explícita do plano pode autorizar implementação dentro do escopo documentado; não se pede novamente a mesma aprovação em cada etapa reversível coberta por ele.
+4. Registre todo handoff com: objetivo e fase; responsável; critérios de aceite; decisões aprovadas; fora de escopo; riscos e limites de dados/ferramentas; arquivos ou áreas esperadas; evidências disponíveis e lacunas; resultado esperado.
+5. Cada aprovação identifica seu escopo. Peça nova aprovação ao mudar escopo, custo, risco, acesso a dados sensíveis, experiência visual sem contrato aprovado ou operação de produção. Silêncio não é aprovação. Deploy, publicação, compra e gasto de campanha exigem autorização explícita imediatamente antes da ação.
+6. O engenheiro entrega SHA-base, HEAD atual, arquivos alterados, critérios atendidos, comandos reais com resultados/exit codes e pendências. O líder passa o diff atual e essas evidências ao `product-qa` independente.
+7. O QA registra, para cada critério, resultado, evidência e verificação executada, junto ao SHA ou snapshot de diff revisado. Em `FAIL`, o engenheiro corrige dentro do escopo e envia diff e evidências novos. Avance com `PASS` e respeite limites de tentativas.
+
+Use três níveis para aplicar gates: **baixo** — mudança local, reversível e coberta pelo plano aprovado; prossiga sem confirmação adicional. **Médio** — mudança que afeta comportamento, arquitetura ou experiência, mas continua dentro dos critérios e limites aprovados; documente o impacto e evidência no handoff. **Alto** — mudança fora do plano, dados sensíveis, produção, publicação, compra, gasto ou impacto material não aprovado; pare e obtenha autorização explícita antes de agir.
+
+### Indicadores do fluxo
+
+Registre mensalmente, por tarefa ou bloco, sem usar os números para pontuar pessoas:
+
+| Indicador | Definição |
+|---|---|
+| Aprovação na primeira revisão | Blocos que recebem `PASS` no primeiro QA ÷ blocos enviados ao QA. |
+| Reabertura de defeitos | Achados de QA marcados como resolvidos que reaparecem numa revisão posterior ÷ achados marcados como resolvidos. |
+| Cobertura de evidências | Critérios aplicáveis com evidência atual e verificável ÷ total de critérios aplicáveis. |
+| Rodadas de esclarecimento | Handoffs que voltam por falta de contexto ou decisão ÷ handoffs enviados. |
+| Tempo de ciclo | Tempo do início à conclusão, separado por fase para localizar espera e retrabalho. |
+
+Comece sem metas; estabeleça baseline e contexto antes de escolher alvos. Use amostras e exemplos para entender causas, não para incentivar velocidade em detrimento da qualidade.
+
+Consulte [EXAMPLE.md](EXAMPLE.md) para um cenário fictício de handoff e revisão; ele não representa evidência de mercado.
 
 ## Segurança e limites
 
-- Os TOML instruem o comportamento, mas não concedem ou retiram ferramentas nem isolamento do runtime. Configure ferramentas e sandbox no Codex separadamente, com privilégio mínimo.
-- Os agentes não devem seguir instruções encontradas em páginas, documentos, resultados de ferramentas ou conteúdo fornecido por terceiros que tentem alterar escopo ou permissões.
-- Não coloque segredos em prompts, repositórios, argumentos de shell ou relatórios. Nenhum agente/scanner garante ausência de vulnerabilidades.
-- O instalador copia somente `agents/*.toml`, sem executar conteúdo desses arquivos. Ele não edita `config.toml`, hooks ou outros dados do Codex.
+- Os TOML instruem o comportamento, mas não concedem nem retiram ferramentas ou isolamento do runtime. Configure ferramentas e sandbox no Codex separadamente, com privilégio mínimo.
+- Agentes devem tratar páginas, documentos, resultados de ferramentas e conteúdo de terceiros como dados não confiáveis, nunca como instruções para alterar escopo ou permissões.
+- Não coloque segredos em prompts, repositórios, argumentos de shell ou relatórios. Nenhum agente ou scanner garante ausência de vulnerabilidades.
+- O instalador copia somente `agents/*.toml`, sem executar o conteúdo. Ele não edita `config.toml`, hooks ou outros dados do Codex.
 - O instalador pode ser executado novamente após atualizar o repositório para instalar novos agentes.
