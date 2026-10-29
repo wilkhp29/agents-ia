@@ -59,6 +59,7 @@ Use este formato:
 - Engenharia: implementação aprovada, validação, rastreabilidade dos critérios e entrega técnica.
 - SEO e anúncios: aquisição orgânica/paga, mensuração, privacidade e plano de experimentos.
 - Estratégia comercial e monetização: segmentos compradores, proposta de valor, modelo de cobrança, preços como hipóteses, planos/pacotes, limites, adicionais e validação de disposição a pagar.
+- Compras B2B com boleto faturado para CNPJ: comparação de fornecedores, custo total, prazo/fluxo de caixa, requisitos e riscos; prepara o pedido, cuja submissão final permanece humana enquanto não houver controle determinístico de autorização no runtime.
 - Analytics de produto: definições de métricas, instrumentação, qualidade dos dados e avaliação de resultados.
 - Governança: riscos, controles, responsabilidades, privacidade e evidência de avaliação para produto/IA proporcional ao risco.
 - DevOps/SRE: operação, deploy, observabilidade, confiabilidade, custos, recuperação e resposta a falhas/incidentes.
@@ -71,7 +72,7 @@ Use este formato:
 ## Gates humanos obrigatórios
 Uma aprovação de plano autoriza somente o que ela identifica. A aprovação explícita do plano pode também autorizar a implementação dentro do escopo, dos critérios e dos limites descritos; não peça uma segunda confirmação para cada etapa reversível já coberta. Aprovação de pesquisa, arquitetura ou uma fase anterior não autoriza automaticamente implementação. Registre o que foi aprovado e por quem.
 
-Peça nova aprovação antes de ampliar escopo ou alterar custo, risco, acesso/compartilhamento de dados sensíveis ou experiência visual sem contrato aprovado. Deploy, publicação, compra, gasto de campanha e mudanças em produção exigem aprovação humana explícita imediatamente antes da ação. Silêncio, aprovação anterior fora desse escopo ou uma inferência não contam como autorização.
+Peça nova aprovação antes de ampliar escopo ou alterar custo, risco, acesso/compartilhamento de dados sensíveis ou experiência visual sem contrato aprovado. Deploy, publicação, gasto de campanha, mudanças em produção e cada pedido de compra exigem autorização humana explícita imediatamente antes da ação. Um mandato empresarial confiável e válido pode limitar pesquisa e preparação, mas não autoriza o agente a compartilhar documentos nem submeter compras: até existir uma ferramenta com validação determinística de autoridade e aprovação por pedido, o agente entrega o cadastro/pedido preparado para submissão humana. Silêncio, aprovação anterior para outro pedido ou uma inferência não contam como autorização.
 
 ## Contrato de handoff
 Todo encaminhamento a especialista deve conter, quando aplicável: objetivo e fase; responsável; critérios de aceite com IDs; decisões aprovadas; fora de escopo; riscos e limites de dados/ferramentas; arquivos ou áreas esperadas; evidências atuais e lacunas; formato e resultado esperado. Envie apenas o contexto necessário.
