@@ -1,6 +1,6 @@
 # Equipe de agentes para produtos digitais
 
-Este repositório contém agentes globais do Codex versionados no Git. O líder coordena o processo `sdd-layout-ecc`; especialistas são acionados sob demanda quando agregam valor.
+Este repositório contém agentes globais do Codex versionados no Git. `product-lead` assume a coordenação quando acionado; toda solicitação de mudança de código passa pelo `software-engineer` e pelo gate terminal independente do `product-qa`.
 
 ## Agents
 
@@ -42,13 +42,14 @@ Git Flow é o padrão para todos os repositórios Git desta equipe. Inspecione a
 
 ### Fases, aprovações e handoffs
 
-1. Acione `product-lead` com a ideia. Ele conduz descoberta, critérios verificáveis, limites e as fases aplicáveis do `sdd-layout-ecc`.
-2. Encaminhe trabalho a especialistas quando a especialidade melhorar materialmente o resultado. O líder informa quando um agente ou ferramenta necessário não está disponível e continua com a alternativa segura possível.
+1. Acione `product-lead` com a ideia ou mudança. Ele assume coordenação, conduz descoberta, define critérios verificáveis e segue as fases aplicáveis do `sdd-layout-ecc`; não implementa diretamente código.
+2. Para toda mudança de código, o líder consulta instruções e conhecimento obrigatório e delega a implementação a `software-engineer`, mesmo quando o caminho parecer simples. O especialista informa quando agente ou ferramenta necessário não está disponível; isso é bloqueio, não permissão para fingir delegação ou assumir o papel.
 3. Para interface, aprove o brief/contrato visual antes da implementação visual. A aprovação explícita do plano pode autorizar implementação dentro do escopo documentado; não se pede novamente a mesma aprovação em cada etapa reversível coberta por ele.
 4. Registre todo handoff com: objetivo e fase; responsável; critérios de aceite; decisões aprovadas; fora de escopo; riscos e limites de dados/ferramentas; arquivos ou áreas esperadas; evidências disponíveis e lacunas; resultado esperado.
 5. Cada aprovação identifica seu escopo. Peça nova aprovação ao mudar escopo, custo, risco, acesso a dados sensíveis, experiência visual sem contrato aprovado ou operação de produção. Silêncio não é aprovação. Deploy, publicação, compra e gasto de campanha exigem autorização explícita imediatamente antes da ação.
-6. O engenheiro entrega SHA-base, HEAD atual, arquivos alterados, critérios atendidos, comandos reais com resultados/exit codes e pendências. O líder passa o diff atual e essas evidências ao `product-qa` independente.
-7. O QA registra, para cada critério, resultado, evidência e verificação executada, junto ao SHA ou snapshot de diff revisado. Em `FAIL`, o engenheiro corrige dentro do escopo e envia diff e evidências novos. Avance com `PASS` e respeite limites de tentativas.
+6. Depois da implementação e das verificações, o líder confere o diff e assegura commit(s) local(is) na branch `feature/*` antes do handoff ao QA. O engenheiro não comita automaticamente; o líder coordena e cria os commits locais, sem push. Se política ou autorização aplicável impedir commits, o gate fica bloqueado. Registre SHA-base, SHA(s) dos commits, HEAD/branch, arquivos alterados, critérios, diff completo, comandos reais com resultados/exit codes e pendências; encaminhe pedido original, critérios, diff e evidências ao `product-qa` independente.
+7. O QA registra, para cada critério, resultado, evidência e verificação executada, junto aos SHA(s) ou snapshot revisado. Em `FAIL`, o engenheiro corrige dentro do escopo e reexecuta verificações; o líder cria commit(s) locais para as correções antes de uma nova revisão, que só é solicitada com diff/evidência atualizados. Avance apenas com `PASS`; se o QA estiver indisponível, houver bloqueio ou o limite de tentativas for atingido, encerre como `QA BLOCKED`. A resposta final de sucesso começa com `QA PASS`.
+8. Após `PASS` do snapshot atual e CI/checks verdes, informe que a branch local está pronta para PR/MR de `feature/*` para `develop`, conforme Git Flow. Push/abertura de PR remoto não são pré-requisito para concluir e exigem autorização; merge, release/tag e deploy exigem suas aprovações específicas.
 
 Use três níveis para aplicar gates: **baixo** — mudança local, reversível e coberta pelo plano aprovado; prossiga sem confirmação adicional. **Médio** — mudança que afeta comportamento, arquitetura ou experiência, mas continua dentro dos critérios e limites aprovados; documente o impacto e evidência no handoff. **Alto** — mudança fora do plano, dados sensíveis, produção, publicação, compra, gasto ou impacto material não aprovado; pare e obtenha autorização explícita antes de agir.
 
