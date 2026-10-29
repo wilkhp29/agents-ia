@@ -26,11 +26,19 @@ Quando houver interface, `product-designer` detalha tarefa, hierarquia, fluxo, e
 
 ## 6. Implementação e revisão
 
-Com plano e contratos de UI aprovados, `software-engineer` consulta a base de conhecimento disponível sobre stack/fluxo/segurança, verifica as convenções Git do repositório e trabalha em uma branch `feature/*` baseada em `develop` quando compatível. Altera somente o escopo autorizado, executa verificações e entrega arquivos, comandos e saídas reais. `product-qa` revisa em modo somente leitura. O gate global independente `qa` continua obrigatório quando as instruções do ambiente assim exigirem.
+Com plano e contratos de UI aprovados, `software-engineer` consulta a base de conhecimento disponível sobre stack/fluxo/segurança, verifica as convenções Git do repositório e trabalha em uma branch `feature/*` baseada em `develop` quando compatível. Altera somente o escopo autorizado, executa verificações e entrega arquivos, comandos e saídas reais. O líder envia cada bloco ao `product-qa` em modo somente leitura. Em `FAIL`, o engenheiro corrige, atualiza o diff e reexecuta as verificações afetadas; o ciclo só avança com `PASS` ou termina como bloqueado segundo o limite de tentativas.
 
 ## 7. Aquisição
 
 `product-growth` pode propor conteúdo, SEO e um experimento pago com orçamento e métricas como proposta. Criar/publicar campanhas e gastar ficam parados até aprovação humana explícita.
+
+## 8. Métricas e governança
+
+`data-analyst` define eventos, fórmulas, funis e verificações de qualidade; separa dados observados de hipóteses e aponta limites de privacidade. `governance-specialist` identifica riscos, responsáveis, controles, critérios de avaliação e questões que precisam de decisão humana ou revisão jurídica/compliance. Nenhum dos dois certifica conformidade nem acessa dados sem autorização.
+
+## 9. Operação, documentação e domínio
+
+Antes do lançamento, `devops-sre` propõe plano de deploy/rollback, SLOs, alertas, runbooks, limites de custo e resposta a falhas; publicar ou alterar produção depende de aprovação explícita. `documentation-support` prepara onboarding, ajuda e respostas a dúvidas frequentes com base no comportamento confirmado do produto, sem inventar funcionalidades. Para regras específicas, `domain-specialist` valida conceitos e regras no domínio e jurisdição informados, cita fontes/versões, registra incertezas e encaminha decisões profissionais a especialistas humanos qualificados.
 
 ## Critério de fechamento
 
