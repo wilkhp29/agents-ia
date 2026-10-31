@@ -42,7 +42,7 @@ O agente `product-designer` pode complementar o processo com skills de terceiros
 
 ### Emil Kowalski
 
-O repositório [`emilkowalski/skills`](https://github.com/emilkowalski/skills) contém `apple-design`, práticas de animação e skills para revisar movimento e interfaces. Para uso global no Codex, com Node.js 22.20 ou mais recente e a CLI `skills` do projeto Vercel:
+O repositório [`emilkowalski/skills`](https://github.com/emilkowalski/skills) contém `apple-design`, práticas de animação e skills para revisar movimento e interfaces. Este comando upstream segue a versão atual; para instalação reproduzível, use o commit fixo da seção abaixo. A CLI `skills` requer Node.js 22.20 ou mais recente:
 
 ```bash
 npx skills add emilkowalski/skills --skill apple-design --agent codex --global
@@ -52,7 +52,7 @@ Instale outras skills do mesmo repositório apenas se a tarefa pedir: `animate`,
 
 ### Taste Skill
 
-[`Leonxlnx/taste-skill`](https://github.com/Leonxlnx/taste-skill) fornece a skill `design-taste-frontend`, para direção de arte e checagem visual em browser. O upstream documenta instalação como plugin Codex:
+[`Leonxlnx/taste-skill`](https://github.com/Leonxlnx/taste-skill) fornece a skill `design-taste-frontend`, para direção de arte e checagem visual em browser. Estes comandos upstream seguem a versão atual; para instalação reproduzível, use o commit fixo da seção abaixo:
 
 ```bash
 codex plugin marketplace add Leonxlnx/taste-skill
@@ -67,11 +67,43 @@ npx skills add https://github.com/Leonxlnx/taste-skill --skill design-taste-fron
 
 O Taste Skill requer Node.js 22+ e Chrome, Edge ou Chromium para os scripts de inspeção; busca de imagens exige internet. Ao decidir usar imagens, confira licença e atribuição. Inicie uma nova sessão do Codex depois da instalação.
 
-### Atualização e verificação
+### Instalação reproduzível por commit
 
-Em cada computador, revise os arquivos `SKILL.md`, licenças, scripts e histórico de alterações antes de instalar ou atualizar. Para skills gerenciadas pela CLI `skills`, confira e atualize com `npx skills check` e `npx skills update`; liste com `npx skills list --global --agent codex`. A documentação atual da CLI indica `~/.agents/skills/` como diretório global do Codex. Plugins Codex podem ser atualizados com `codex plugin marketplace upgrade`; verifique as fontes cadastradas com `codex plugin marketplace list`.
+Os exemplos anteriores seguem a versão atual e podem mudar. Para instalar ou reinstalar o conteúdo revisado abaixo, fixe o commit no caminho GitHub `tree/<SHA>` aceito pela CLI `skills`. Os SHAs foram conferidos por checkout detached; confira novamente antes de usar, pois o projeto pode mudar ou remover o commit.
 
-Comandos sem uma referência de versão acompanham a versão atual da origem e não são reproduzíveis bit a bit. Para auditoria ou equipes, fixe tag/commit quando a ferramenta e a origem aceitarem esse seletor e registre a revisão instalada. A CLI `skills` oferece instalação global com `--global`/`-g`; não instale todas as skills por padrão. Esses recursos são opcionais e não devem alterar contratos visuais ou permissões aprovados no projeto.
+| Skill | Repositório e commit revisado | Diretório da skill no repositório |
+|---|---|---|
+| `apple-design` | [`emilkowalski/skills` · `a81dbca07f2217b7103e510c0f13f8d5b017afc9`](https://github.com/emilkowalski/skills/tree/a81dbca07f2217b7103e510c0f13f8d5b017afc9) | `skills/apple-design` |
+| `design-taste-frontend` | [`Leonxlnx/taste-skill` · `12af471f627f866411b4bd785b19646d3672784c`](https://github.com/Leonxlnx/taste-skill/tree/12af471f627f866411b4bd785b19646d3672784c) | `skills/taste-skill` |
+
+Antes de instalar, valide o checkout e revise a skill e seus arquivos auxiliares:
+
+```bash
+tmp_dir="$(mktemp -d)"
+git clone --no-checkout https://github.com/emilkowalski/skills.git "$tmp_dir/emilkowalski-skills"
+git -C "$tmp_dir/emilkowalski-skills" fetch origin a81dbca07f2217b7103e510c0f13f8d5b017afc9
+git -C "$tmp_dir/emilkowalski-skills" checkout --detach a81dbca07f2217b7103e510c0f13f8d5b017afc9
+test "$(git -C "$tmp_dir/emilkowalski-skills" rev-parse HEAD)" = a81dbca07f2217b7103e510c0f13f8d5b017afc9
+less "$tmp_dir/emilkowalski-skills/skills/apple-design/SKILL.md"
+
+git clone --no-checkout https://github.com/Leonxlnx/taste-skill.git "$tmp_dir/taste-skill"
+git -C "$tmp_dir/taste-skill" fetch origin 12af471f627f866411b4bd785b19646d3672784c
+git -C "$tmp_dir/taste-skill" checkout --detach 12af471f627f866411b4bd785b19646d3672784c
+test "$(git -C "$tmp_dir/taste-skill" rev-parse HEAD)" = 12af471f627f866411b4bd785b19646d3672784c
+less "$tmp_dir/taste-skill/skills/taste-skill/SKILL.md"
+```
+
+Depois da revisão, instale as árvores completas nas pastas globais do Codex usando as URLs que apontam para os commits fixos:
+
+```bash
+npx skills add https://github.com/emilkowalski/skills/tree/a81dbca07f2217b7103e510c0f13f8d5b017afc9/skills/apple-design --agent codex --global
+npx skills add https://github.com/Leonxlnx/taste-skill/tree/12af471f627f866411b4bd785b19646d3672784c/skills/taste-skill --agent codex --global
+npx skills ls --global --agent codex
+```
+
+A CLI documenta instalação por caminho direto de uma skill, seleção de agente, escopo global e diretório global compartilhado do Codex em `~/.agents/skills/`. O caminho `skills/taste-skill` é preservado pela instalação, incluindo referências, assets e scripts exigidos. Em reinstalações, confirme o conteúdo de terceiros antes de substituir a skill previamente instalada. Esses comandos fixam a origem da skill, mas não a versão da CLI `npx skills`; para auditoria estrita, registre também a versão da CLI e confira o `HEAD` destacado antes de instalar. Não execute scripts do conteúdo durante a revisão.
+
+Para instalações sem pin, confira atualizações com `npx skills check` e atualize conscientemente com `npx skills update`; liste skills globais com `npx skills ls --global --agent codex`. Plugins Codex podem ser atualizados com `codex plugin marketplace upgrade`; verifique as fontes cadastradas com `codex plugin marketplace list`. Não instale todas as skills por padrão. Esses recursos são opcionais e não alteram contratos visuais ou permissões aprovados no projeto.
 
 ## Fluxo padrão
 
