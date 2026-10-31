@@ -36,6 +36,77 @@ O instalador preserva arquivos existentes por padrão. Se houver conflito de nom
 
 Atualize o repositório via Git, revise as mudanças e execute novamente o instalador. Use `--replace` somente se aceitar substituir os agentes de mesmo nome.
 
+## Skills e ferramentas por agente
+
+O pacote contém 16 perfis em `agents/*.toml`. A tabela mostra referências e recursos de runtime declarados nos perfis, separando requisitos do processo e integrações condicionais. A disponibilidade depende da sua instalação do Codex e das conexões feitas nela; os perfis não instalam ferramentas, credenciais, servidores MCP, navegadores ou dependências do seu produto.
+
+| Agente | Skills e práticas | Ferramentas/conexões usadas quando disponíveis |
+|---|---|---|
+| `product-lead` | `sdd-layout-ecc`; fluxo Git Flow e gate `product-qa` | Delegação aos agentes personalizados; Git; GitHub/GitLab conectado ou CLI autenticada para publicar branch e abrir PR após QA `PASS` |
+| `product-manager` | `sdd-layout-ecc` conforme escopo | Acesso a brief, repositório e fontes do produto |
+| `product-designer` | `sdd-layout-ecc`; Impeccable para trabalho de interface; `apple-design` e `design-taste-frontend` opcionais e por tarefa | Referências visuais, navegador e captura de tela para validar UI; sem evidência visual, não declarar fidelidade |
+| `deep-researcher` | Pesquisa com fontes e incerteza explícitas | Busca web e acesso a fontes primárias; RAG de conhecimento quando configurado |
+| `software-architect` | Threat modeling e práticas da stack conforme o projeto | Leitura do repositório e RAG de conhecimento; documentação oficial atual |
+| `software-engineer` | TDD/verificações do projeto; Ponytail como apoio opcional se instalado; skills ECC relevantes à stack quando disponíveis | Git; ferramentas já configuradas no projeto para build/test/lint/tipos; RAG de conhecimento; sem instalação ou deploy automático |
+| `product-growth` | SEO, mensuração e experimentação conforme canal | Busca web; analytics, plataformas de anúncios e seus conectores somente quando configurados e autorizados |
+| `freelance-client-acquisition` | Pesquisa e qualificação de oportunidades; proposta e negociação dentro do mandato | Busca web e páginas/marketplaces acessíveis; não envia candidatura nem aceita contratos automaticamente |
+| `commercial-strategy` | Premissas e validação de modelo comercial | Busca web para dados atuais e RAG de conhecimento; sem benchmark não verificado |
+| `cnpj-boleto-buyer` | Comparação B2B e preparo para submissão humana | Navegador/busca para fornecedores e fontes comerciais; perfil desativa Apps, plugins e shell e não submete pedidos |
+| `data-analyst` | Definição de métricas, qualidade e análise conforme a pergunta | Conectores de dados/bancos com acesso autorizado e ferramenta de analytics quando disponíveis |
+| `governance-specialist` | Avaliação proporcional de riscos, controles, privacidade e responsabilidade | RAG de conhecimento e fontes oficiais atuais quando necessários |
+| `devops-sre` | Operação, deploy, observabilidade, custo e resposta a incidentes | CLI e conectores da infraestrutura do projeto, somente com escopo/acesso apropriado; este pacote não instala cloud CLI |
+| `documentation-support` | Onboarding, ajuda e conteúdo de suporte | Repositório, documentação do produto e canais de suporte autorizados |
+| `domain-specialist` | Fontes, jurisdição, versão e limites de expertise do domínio | Busca web/documentação oficial do domínio; RAG quando configurado |
+| `product-qa` | `ecc:security-review`, `ecc:security-scan`, skills ECC da stack; Impeccable e navegador para UI quando aplicável | Diff, comandos/saídas fornecidos pelo executor, scanners pertinentes e capturas reais; somente leitura, sem delegar ou corrigir |
+
+### O que vem do Codex e o que precisa ser configurado
+
+- **Agentes deste pacote:** `./install-agents.sh` copia somente os arquivos TOML para `$CODEX_HOME/agents` ou `~/.codex/agents`. Não instala skills, edita `config.toml`, cadastra marketplace, configura MCP, cria credenciais ou ativa hooks.
+- **Skills locais:** o Codex procura skills globais em `~/.agents/skills/<skill>/SKILL.md`. Elas podem vir de plugin ou da CLI de skills; reinicie/abra uma nova conversa depois de instalar. A instalação de uma skill não instala automaticamente browser, ferramentas do produto ou acesso a dados.
+- **`sdd-layout-ecc`:** skill personalizada referenciada por agentes, mas não incluída neste repositório. No computador atual, a fonte informada é `~/.codex/skills/sdd-layout-ecc/SKILL.md`. Para outra máquina, transfira e revise essa pasta por canal confiável para `~/.agents/skills/sdd-layout-ecc/SKILL.md`; não existe neste pacote um comando de instalação ou fonte Git pública para ela. Se não estiver disponível, o agente deve declarar a limitação e seguir o fallback documentado no perfil.
+- **Conhecimento (`buscar_conhecimento`):** conexão MCP `codex_conhecimento` da instalação do usuário. O perfil não contém endpoint, credencial nem instalador; configure o servidor MCP separadamente e verifique que a ferramenta aparece no Codex. Se ausente, os agentes devem declarar a lacuna e consultar fontes oficiais atuais quando a tarefa permitir.
+- **Busca web, navegador, subagentes, shell e conectores:** são capacidades do runtime/conta Codex e permissões da sessão, não dependências deste repositório. Acesso a GitHub/GitLab, analytics, marketplaces e cloud também requer conexão/autenticação própria. Não coloque tokens em agentes ou neste repositório.
+- **Skills ECC e comandos de auditoria:** instale o plugin oficial `affaan-m/ECC` no Codex se precisar das referências `ecc:*` usadas por engenharia e QA. Revise o plugin e seus hooks antes de confiar neles; o perfil QA deve registrar quando uma skill/scanner específica não está disponível.
+
+Instalação do ECC pelo Codex CLI (confirme a versão mínima atual na fonte antes de usar):
+
+```bash
+codex plugin marketplace add affaan-m/ECC
+codex plugin add ecc@ecc
+codex plugin list
+```
+
+Depois da instalação, reinicie o Codex. O ECC também inclui hooks e um MCP de Chrome DevTools; revise as definições em `/hooks` e conceda confiança somente ao que entender e quiser habilitar. A instalação do plugin não equivale a aprovar esses hooks.
+
+### Impeccable para design e QA visual
+
+Impeccable oferece skills e procedimentos como `shape`, `audit`, `critique` e `polish`. Instalação global via CLI de skills, conforme documentação do projeto:
+
+```bash
+npx skills add pbakaus/impeccable --agent codex --global
+npx skills ls --global --agent codex
+```
+
+Outra opção é procurar Impeccable na aba Plugins do Codex e instalá-lo ali. No Codex, a skill principal é `$impeccable`; confira a versão e o comando no catálogo instalado. A CLI pode baixar/executar componentes para a integração escolhida; revise origem, arquivos e permissões antes de habilitar.
+
+### Ponytail para o software-engineer
+
+Ponytail é um skill/plugin de terceiros para reduzir implementação desnecessária e revisar código. É opcional: não substitui critérios, testes, segurança, acessibilidade nem o gate independente `product-qa`. A versão revisada para este guia é a tag `v5.3.0` do repositório oficial [`DietrichGebert/ponytail`](https://github.com/dietrichgebert/ponytail).
+
+```bash
+codex plugin marketplace add DietrichGebert/ponytail --ref v5.3.0
+codex plugin add ponytail@ponytail
+codex plugin list
+```
+
+Antes de confiar nos hooks, abra `/hooks`, leia as duas definições de ciclo de vida e aprove individualmente somente as que aceitar. A instalação não as autoriza automaticamente. Inicie uma nova conversa após instalar. Os comandos do plugin aparecem com namespace Codex, por exemplo `$ponytail:ponytail-review` e `$ponytail:ponytail-audit`; confirme a lista disponível com `$ponytail:ponytail-help`. O perfil do engenheiro funciona sem o plugin e não manda instalá-lo ou confiar nos hooks por conta própria.
+
+### PRs, revisão humana e comentários
+
+Após `product-qa PASS` para o diff atual e verificações locais verdes, `product-lead` publica a branch `feature/*` e abre PR/MR para `develop`, preenchendo descrição com escopo, critérios, verificações, riscos, SHAs e evidência de QA. Para GitHub, instale a [GitHub CLI](https://cli.github.com/manual/installation) (`gh`) ou conecte a integração GitHub do Codex; autentique e verifique acesso ao repositório antes do fluxo. Git/GitHub não são configurados pelo instalador dos agentes.
+
+Você revisa e faz o merge. Se marcar `@software-engineer` com feedback num PR aberto, o engenheiro corrige somente os pontos indicados, roda verificações afetadas e entrega diff/saídas ao líder. O líder cria o commit local, atualiza a mesma branch/PR sem force-push e pede nova revisão `product-qa`; o PR só é considerado aprovado/resolvido com novo `PASS` do snapshot atual e checks obrigatórios verdes. Merge, release e deploy continuam sob sua decisão/autorização.
+
 ## Skills externas de design
 
 O agente `product-designer` pode complementar o processo com skills de terceiros, quando pertinentes. Elas não são copiadas pelo instalador de agentes: instale-as separadamente em cada computador e confira o conteúdo e a origem antes de habilitá-las.
@@ -109,7 +180,7 @@ Para instalações sem pin, confira atualizações com `npx skills check` e atua
 
 ### Git Flow
 
-Git Flow é o padrão para todos os repositórios Git desta equipe. Inspecione as instruções e o histórico antes de criar branches. Use `main` ou `master` como linha primária; crie `develop` localmente a partir da linha-base correta quando ela não existir; crie `feature/<slug>` a partir de `develop` para funcionalidades e `hotfix/<slug>` para correções urgentes da linha de produção. Se histórico, upstream ou alterações locais tornarem a base ambígua, preserve o estado e peça orientação ao líder. Não faça push, merge, release ou ação remota crítica sem autorização explícita.
+Git Flow é o padrão para todos os repositórios Git desta equipe. Inspecione as instruções e o histórico antes de criar branches. Use `main` ou `master` como linha primária; crie `develop` localmente a partir da linha-base correta quando ela não existir; crie `feature/<slug>` a partir de `develop` para funcionalidades e `hotfix/<slug>` para correções urgentes da linha de produção. Se histórico, upstream ou alterações locais tornarem a base ambígua, preserve o estado e peça orientação ao líder. Após `product-qa PASS` e verificações locais verdes, o usuário autoriza o `product-lead` a publicar a branch de feature e abrir PR/MR para `develop` sem pedir confirmação repetida. Push fora desse fluxo, merge, release/tag e deploy não são autorizados automaticamente.
 
 ### Fases, aprovações e handoffs
 
@@ -117,10 +188,11 @@ Git Flow é o padrão para todos os repositórios Git desta equipe. Inspecione a
 2. Quando o entendimento for suficiente, o líder apresenta o problema, escopo, critérios verificáveis, exclusões, plano e riscos, e pergunta diretamente: **“Você aprova este plano e autoriza iniciar a implementação?”** Só uma resposta explícita e inequívoca autorizando a implementação do plano permite avançar. Se o usuário continuar discutindo ou responder com dúvida/ambiguidade, o líder permanece na descoberta, atualiza o resumo e esclarece o que falta; não presume autorização.
 3. Após essa autorização, para toda mudança de código o líder consulta instruções e conhecimento obrigatório e delega a implementação a `software-engineer`, mesmo quando o caminho parecer simples. Para interface, aprove também o brief/contrato visual antes da implementação visual. Mudanças materiais fora do plano exigem nova aprovação. Indisponibilidade do especialista é bloqueio, não permissão para fingir delegação ou assumir o papel.
 4. Registre todo handoff com: objetivo e fase; responsável; critérios de aceite; decisões aprovadas; fora de escopo; riscos e limites de dados/ferramentas; arquivos ou áreas esperadas; evidências disponíveis e lacunas; resultado esperado.
-5. Cada aprovação identifica seu escopo. A autorização para implementar deve vir depois da apresentação do plano e da pergunta explícita; autorização para conversar, pesquisar ou especificar não basta. Peça nova aprovação ao mudar escopo, custo, risco, acesso a dados sensíveis, experiência visual sem contrato aprovado ou operação de produção. Silêncio não é aprovação. Deploy, publicação, compra e gasto de campanha exigem autorização explícita imediatamente antes da ação.
+5. Cada aprovação identifica seu escopo. A autorização para implementar deve vir depois da apresentação do plano e da pergunta explícita; autorização para conversar, pesquisar ou especificar não basta. Peça nova aprovação ao mudar escopo, custo, risco, acesso a dados sensíveis, experiência visual sem contrato aprovado ou operação de produção. Silêncio não é aprovação. Deploy, release, compra e gasto de campanha exigem autorização explícita imediatamente antes da ação. A autorização persistente do usuário neste fluxo cobre somente push da branch aprovada após QA e abertura/atualização do PR/MR para `develop`.
 6. Depois da implementação e das verificações, o líder confere o diff e assegura commit(s) local(is) na branch `feature/*` antes do handoff ao QA. O engenheiro não comita automaticamente; o líder coordena e cria os commits locais, sem push. Se política ou autorização aplicável impedir commits, o gate fica bloqueado. Registre SHA-base, SHA(s) dos commits, HEAD/branch, arquivos alterados, critérios, diff completo, comandos reais com resultados/exit codes e pendências; encaminhe pedido original, critérios, diff e evidências ao `product-qa` independente.
 7. O QA registra, para cada critério, resultado, evidência e verificação executada, junto aos SHA(s) ou snapshot revisado. Em `FAIL`, o engenheiro corrige dentro do escopo e reexecuta verificações; o líder cria commit(s) locais para as correções antes de uma nova revisão, que só é solicitada com diff/evidência atualizados. Avance apenas com `PASS`; se o QA estiver indisponível, houver bloqueio ou o limite de tentativas for atingido, encerre como `QA BLOCKED`. A resposta final de sucesso começa com `QA PASS`.
-8. Após `PASS` do snapshot atual e CI/checks verdes, informe que a branch local está pronta para PR/MR de `feature/*` para `develop`, conforme Git Flow. Push/abertura de PR remoto não são pré-requisito para concluir e exigem autorização; merge, release/tag e deploy exigem suas aprovações específicas.
+8. Após `PASS` do snapshot atual e verificações locais obrigatórias verdes, publique automaticamente a branch de feature e abra/atualize PR/MR para `develop`. Inclua pedido, critérios, testes/saídas, riscos, SHAs e evidência do QA. Confira URL, base/head e checks remotos e informe o estado real. Se a integração/CLI ou permissão faltar, mantenha commits locais e reporte bloqueio sem alegar publicação.
+9. O usuário revisa o PR/MR e faz o merge. Se marcar `@software-engineer` com feedback, o engenheiro corrige apenas os pontos indicados na mesma branch/PR; líder cria commit local, atualiza o PR e encaminha o diff novo ao `product-qa`. Checks e QA precisam passar novamente antes de comunicar resolução. Nunca faça merge por conta própria.
 
 Use três níveis para aplicar gates: **baixo** — mudança local, reversível e coberta pelo plano aprovado; prossiga sem confirmação adicional. **Médio** — mudança que afeta comportamento, arquitetura ou experiência, mas continua dentro dos critérios e limites aprovados; documente o impacto e evidência no handoff. **Alto** — mudança fora do plano, dados sensíveis, produção, publicação, compra, gasto ou impacto material não aprovado; pare e obtenha autorização explícita antes de agir.
 
