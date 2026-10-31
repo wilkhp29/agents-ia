@@ -42,22 +42,22 @@ O pacote contém 16 perfis em `agents/*.toml`. A tabela mostra referências e re
 
 | Agente | Skills e práticas | Ferramentas/conexões usadas quando disponíveis |
 |---|---|---|
-| `product-lead` | `sdd-layout-ecc`; fluxo Git Flow e gate `product-qa` | Delegação aos agentes personalizados; Git; GitHub/GitLab conectado ou CLI autenticada para publicar branch e abrir PR após QA `PASS` |
-| `product-manager` | `sdd-layout-ecc` conforme escopo | Acesso a brief, repositório e fontes do produto |
-| `product-designer` | `sdd-layout-ecc`; Impeccable para trabalho de interface; `apple-design` e `design-taste-frontend` opcionais e por tarefa | Referências visuais, navegador e captura de tela para validar UI; sem evidência visual, não declarar fidelidade |
-| `deep-researcher` | Pesquisa com fontes e incerteza explícitas | Busca web e acesso a fontes primárias; RAG de conhecimento quando configurado |
-| `software-architect` | Threat modeling e práticas da stack conforme o projeto | Leitura do repositório e RAG de conhecimento; documentação oficial atual |
-| `software-engineer` | TDD/verificações do projeto; Ponytail como apoio opcional se instalado; skills ECC relevantes à stack quando disponíveis | Git; ferramentas já configuradas no projeto para build/test/lint/tipos; RAG de conhecimento; sem instalação ou deploy automático |
-| `product-growth` | SEO, mensuração e experimentação conforme canal | Busca web; analytics, plataformas de anúncios e seus conectores somente quando configurados e autorizados |
-| `freelance-client-acquisition` | Pesquisa e qualificação de oportunidades; proposta e negociação dentro do mandato | Busca web e páginas/marketplaces acessíveis; não envia candidatura nem aceita contratos automaticamente |
-| `commercial-strategy` | Premissas e validação de modelo comercial | Busca web para dados atuais e RAG de conhecimento; sem benchmark não verificado |
-| `cnpj-boleto-buyer` | Comparação B2B e preparo para submissão humana | Navegador/busca para fornecedores e fontes comerciais; perfil desativa Apps, plugins e shell e não submete pedidos |
-| `data-analyst` | Definição de métricas, qualidade e análise conforme a pergunta | Conectores de dados/bancos com acesso autorizado e ferramenta de analytics quando disponíveis |
-| `governance-specialist` | Avaliação proporcional de riscos, controles, privacidade e responsabilidade | RAG de conhecimento e fontes oficiais atuais quando necessários |
-| `devops-sre` | Operação, deploy, observabilidade, custo e resposta a incidentes | CLI e conectores da infraestrutura do projeto, somente com escopo/acesso apropriado; este pacote não instala cloud CLI |
-| `documentation-support` | Onboarding, ajuda e conteúdo de suporte | Repositório, documentação do produto e canais de suporte autorizados |
-| `domain-specialist` | Fontes, jurisdição, versão e limites de expertise do domínio | Busca web/documentação oficial do domínio; RAG quando configurado |
-| `product-qa` | `ecc:security-review`, `ecc:security-scan`, skills ECC da stack; Impeccable e navegador para UI quando aplicável | Diff, comandos/saídas fornecidos pelo executor, scanners pertinentes e capturas reais; somente leitura, sem delegar ou corrigir |
+| `product-lead` | `sdd-layout-ecc` (preferido/necessário quando disponível; perfil define fallback se ausente); Git Flow; gate `product-qa` | Delegação aos agentes personalizados; Git; GitHub/GitLab conectado ou CLI autenticada para publicar branch/abrir PR após `PASS` (condicional ao remoto) |
+| `product-manager` | `sdd-layout-ecc` (condicional ao projeto; seguir gates aplicáveis) | Brief, repositório e fontes do produto (conforme a tarefa) |
+| `product-designer` | `sdd-layout-ecc` (quando disponível); Impeccable (condicional a UI); `apple-design` e `design-taste-frontend` (opcionais, por tarefa) | Referências visuais, navegador e capturas (condicionais a UI; sem evidência visual, não declarar fidelidade) |
+| `deep-researcher` | Nenhuma skill externa nomeada no perfil; método de pesquisa é obrigatório | Busca web (necessária para fatos atuais se disponível); caso contrário, solicitar fontes/links ou declarar limite |
+| `software-architect` | Nenhuma skill externa nomeada no perfil; threat model conforme risco | Repositório e documentação oficial atual; RAG conforme a tarefa/disponibilidade |
+| `software-engineer` | TDD conforme capacidade do host; Ponytail (opcional, se instalado); ECC/skill da stack (condicional à disponibilidade e ao código) | Git; build/test/lint/tipos já configurados no projeto; RAG ao alterar código; sem instalação ou deploy automático |
+| `product-growth` | Nenhuma skill externa nomeada no perfil; SEO/experimentação conforme canal | Busca web (condicional a fatos atuais); analytics/plataformas de anúncio somente se conectadas e autorizadas |
+| `freelance-client-acquisition` | Nenhuma skill externa nomeada no perfil; método de qualificação e proposta do próprio perfil | Busca web/marketplaces (condicionais ao pedido e acesso); não envia candidatura nem aceita contrato |
+| `commercial-strategy` | Nenhuma skill externa nomeada no perfil; premissas e validação do próprio perfil | Busca web para preços/mercado atuais; sem benchmark não verificado |
+| `cnpj-boleto-buyer` | Nenhuma skill externa nomeada no perfil; controles de compra do próprio perfil | Navegador/busca (condicionais a fornecedores/fontes acessíveis); Apps, plugins e shell desativados; não submete pedidos |
+| `data-analyst` | Nenhuma skill externa nomeada no perfil; método de métricas e qualidade do próprio perfil | Conectores de dados/bancos/analytics (condicionais a fonte existente, credencial e acesso autorizado) |
+| `governance-specialist` | Nenhuma skill externa nomeada no perfil; avaliação proporcional do próprio perfil | RAG e fontes oficiais atuais quando a pergunta exigir |
+| `devops-sre` | Nenhuma skill externa nomeada no perfil; práticas da stack/provedor conforme tarefa | CLI/conectores da infraestrutura (condicionais a ambiente e autorização); este pacote não instala cloud CLI |
+| `documentation-support` | Nenhuma skill externa nomeada no perfil; método editorial do próprio perfil | Repositório/documentação; canais de suporte apenas quando autorizados e conectados |
+| `domain-specialist` | Nenhuma skill externa nomeada no perfil; conhecimento do domínio precisa ser identificado por tarefa | Busca/documentação oficial (necessárias quando regras podem mudar); domínio, jurisdição e versão delimitados |
+| `product-qa` | ECC `security-review`/`security-scan` (quando disponíveis para mudança de código); ECC de stack condicional; Impeccable condicional a UI | Diff e saídas do executor; scanner/browser/capturas somente conforme aplicabilidade e disponibilidade; somente leitura, sem delegar/corrigir |
 
 ### O que vem do Codex e o que precisa ser configurado
 
@@ -91,7 +91,7 @@ Outra opção é procurar Impeccable na aba Plugins do Codex e instalá-lo ali. 
 
 ### Ponytail para o software-engineer
 
-Ponytail é um skill/plugin de terceiros para reduzir implementação desnecessária e revisar código. É opcional: não substitui critérios, testes, segurança, acessibilidade nem o gate independente `product-qa`. A versão revisada para este guia é a tag `v5.3.0` do repositório oficial [`DietrichGebert/ponytail`](https://github.com/dietrichgebert/ponytail).
+Ponytail é um skill/plugin de terceiros para reduzir implementação desnecessária e revisar código. É opcional: não substitui critérios, testes, segurança, acessibilidade nem o gate independente `product-qa`. A versão revisada para este guia é a tag `v5.3.0` (commit `742e0abae1501e12d1254a81d05f16bba10d08c1`) do repositório oficial [`DietrichGebert/ponytail`](https://github.com/dietrichgebert/ponytail). O tag foi buscado e verificado por checkout destacado em 2026-10-31.
 
 ```bash
 codex plugin marketplace add DietrichGebert/ponytail --ref v5.3.0
