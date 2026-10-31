@@ -36,6 +36,43 @@ O instalador preserva arquivos existentes por padrão. Se houver conflito de nom
 
 Atualize o repositório via Git, revise as mudanças e execute novamente o instalador. Use `--replace` somente se aceitar substituir os agentes de mesmo nome.
 
+## Skills externas de design
+
+O agente `product-designer` pode complementar o processo com skills de terceiros, quando pertinentes. Elas não são copiadas pelo instalador de agentes: instale-as separadamente em cada computador e confira o conteúdo e a origem antes de habilitá-las.
+
+### Emil Kowalski
+
+O repositório [`emilkowalski/skills`](https://github.com/emilkowalski/skills) contém `apple-design`, práticas de animação e skills para revisar movimento e interfaces. Para uso global no Codex, com Node.js 22.20 ou mais recente e a CLI `skills` do projeto Vercel:
+
+```bash
+npx skills add emilkowalski/skills --skill apple-design --agent codex --global
+```
+
+Instale outras skills do mesmo repositório apenas se a tarefa pedir: `animate`, `review-animations`, `improve-animations`, `find-animation-opportunities`, `remove-animations`, `animation-performance`, `animate-expo`, entre outras. Consulte a lista atual no README de origem antes de escolher.
+
+### Taste Skill
+
+[`Leonxlnx/taste-skill`](https://github.com/Leonxlnx/taste-skill) fornece a skill `design-taste-frontend`, para direção de arte e checagem visual em browser. O upstream documenta instalação como plugin Codex:
+
+```bash
+codex plugin marketplace add Leonxlnx/taste-skill
+codex plugin add taste-skill@taste-skill
+```
+
+Ou, para manter a skill separada dos demais componentes do plugin, use a CLI `skills` com escopo global:
+
+```bash
+npx skills add https://github.com/Leonxlnx/taste-skill --skill design-taste-frontend --agent codex --global
+```
+
+O Taste Skill requer Node.js 22+ e Chrome, Edge ou Chromium para os scripts de inspeção; busca de imagens exige internet. Ao decidir usar imagens, confira licença e atribuição. Inicie uma nova sessão do Codex depois da instalação.
+
+### Atualização e verificação
+
+Em cada computador, revise os arquivos `SKILL.md`, licenças, scripts e histórico de alterações antes de instalar ou atualizar. Para skills gerenciadas pela CLI `skills`, confira e atualize com `npx skills check` e `npx skills update`; liste com `npx skills list --global --agent codex`. A documentação atual da CLI indica `~/.agents/skills/` como diretório global do Codex. Plugins Codex podem ser atualizados com `codex plugin marketplace upgrade`; verifique as fontes cadastradas com `codex plugin marketplace list`.
+
+Comandos sem uma referência de versão acompanham a versão atual da origem e não são reproduzíveis bit a bit. Para auditoria ou equipes, fixe tag/commit quando a ferramenta e a origem aceitarem esse seletor e registre a revisão instalada. A CLI `skills` oferece instalação global com `--global`/`-g`; não instale todas as skills por padrão. Esses recursos são opcionais e não devem alterar contratos visuais ou permissões aprovados no projeto.
+
 ## Fluxo padrão
 
 ### Git Flow
