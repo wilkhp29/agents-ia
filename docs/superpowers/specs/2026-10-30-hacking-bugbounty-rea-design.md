@@ -1,6 +1,6 @@
 # Agente Hacking para Bug Bounty com REA
 
-**Status:** Em revisão pelo usuário
+**Status:** Aprovado pelo usuário para implementação e entrega na `main` com push em 2026-10-30
 **Branch de trabalho:** `feature/hacking-bugbounty-rea`
 **Base:** `bb3bde5`
 
@@ -63,4 +63,4 @@ O usuário quer investigar programas bug bounty com autonomia, testar caminhos n
 - Gestor: `product-lead`.
 - REA: ferramenta de apoio, configurada para Codex com prévia revisável.
 - Branching: `develop` local foi criado a partir de `main`; implementação em `feature/hacking-bugbounty-rea`.
-- Push remoto não faz parte deste escopo sem pedido explícito separado.
+- O usuário autorizou integrar na `main` e enviar push após QA PASS em 2026-10-30.

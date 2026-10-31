@@ -20,6 +20,7 @@ Este repositório contém agentes globais do Codex versionados no Git. `product-
 | `devops-sre` | Deploy, confiabilidade, observabilidade, custos, recuperação e resposta a incidentes. |
 | `documentation-support` | Onboarding, central de ajuda, conteúdo de suporte e identificação de lacunas na experiência. |
 | `domain-specialist` | Regras, terminologia, evidências e limites de um domínio configurado para cada produto. |
+| `hacking` | Bug bounty autorizado: pesquisa dentro do escopo e das regras oficiais, com REA como apoio e relatório sem submissão automática. |
 | `product-qa` | Gate terminal somente leitura de critérios, produto e segurança em cada bloco de engenharia. |
 
 ## Instalar globalmente no Codex
@@ -78,3 +79,7 @@ Consulte [EXAMPLE.md](EXAMPLE.md) para um cenário fictício de handoff e revis�
 - Não coloque segredos em prompts, repositórios, argumentos de shell ou relatórios. Nenhum agente ou scanner garante ausência de vulnerabilidades.
 - O instalador copia somente `agents/*.toml`, sem executar o conteúdo. Ele não edita `config.toml`, hooks ou outros dados do Codex.
 - O instalador pode ser executado novamente após atualizar o repositório para instalar novos agentes.
+
+### Bug bounty autorizado
+
+Após o gate explícito do plano de avaliação, o líder pode encaminhar ao `hacking` o programa e a fonte oficial vigente, ativos in-scope e exclusões, métodos proibidos/permitidos, janela e limites de taxa, contas/dados de teste, critérios e riscos. O agente explora caminhos negativos e casos-limite somente dentro dessas regras, usando REA para reverse engineering e evidências, não como scanner ou garantia de descoberta. DoS, brute force, phishing, persistência, evasão, alteração destrutiva, acesso/exfiltração de dados de terceiros e testes fora de escopo são proibidos. Ambiguidade ou impacto material pausa o teste para decisão do usuário; o resultado é um rascunho de relatório, sem submissão automática nem promessa de recompensa. MCP do REA configurado no cliente Codex pode ser herdado por outras sessões; perfil TOML não cria isolamento de ferramentas.
