@@ -36,7 +36,7 @@ O usuário quer investigar programas bug bounty com autonomia, testar caminhos n
 ## Limites de segurança e operação
 - Cada avaliação requer URL/fonte oficial do programa, escopo explícito e política vigente. Não realizar varredura ampla de ativos descobertos por associação.
 - Não executar DoS, spam, brute force/credential stuffing, phishing/engenharia social, persistência, evasão, alteração destrutiva, acesso a dados de terceiros ou exfiltração. Usar contas/dados próprios ou de teste e interromper ao confirmar o impacto mínimo necessário.
-- Manter limites de taxa e janelas do programa. Sem limite informado, escolher o método menos intrusivo e perguntar antes de aumentar intensidade.
+- Manter limites de taxa e janelas do programa. Se a fonte oficial não definir claramente o limite de taxa, não realizar testes ativos até esclarecer a regra; limitar-se à observação passiva somente se a política oficial a permitir e pedir orientação.
 - Não guardar nem repetir segredos, tokens, dados pessoais ou dados de outros clientes nos relatórios. Redigir/mascarar evidências.
 - A integração MCP do REA é configurada no cliente Codex e não cria sandbox individual por agente. As instruções do perfil não substituem permissões do runtime nem as regras aplicadas pela ferramenta/servidor. Não usar o perfil como isolamento de segurança.
 - A instalação deve usar apenas o cliente Codex, executar `--dry-run` primeiro, inspecionar as mudanças propostas e preservar configurações preexistentes. Não instalar Hopper/Ghidra ou outros provedores nativos sem uma necessidade aprovada.

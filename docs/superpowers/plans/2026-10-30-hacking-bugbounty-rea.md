@@ -16,7 +16,7 @@
 - Create: `agents/hacking.toml`
 
 - [x] Definir especialidade bug bounty e subordinação ao `product-lead`.
-- [x] Exigir fonte oficial do programa, escopo por ativo, métodos permitidos/proibidos, limites de taxa e janela antes de testar.
+- [x] Exigir fonte oficial do programa, escopo por ativo, métodos permitidos/proibidos, limites de taxa e janela antes de testar; sem limite de taxa oficial claro, não permitir testes ativos até esclarecer a regra, admitindo apenas observação passiva se permitida pela política.
 - [x] Incluir plano de testes positivos/negativos, limites, estados de erro, autorização, falhas e sequências incomuns dentro do escopo.
 - [x] Proibir DoS, brute force, phishing/engenharia social, persistência, evasão, exfiltração, acesso a dados de terceiros, alteração destrutiva e teste fora do programa.
 - [x] Definir o uso do REA para reverse engineering/evidências, sem tratá-lo como scanner ou garantia de detecção.
