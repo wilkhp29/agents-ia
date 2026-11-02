@@ -2,6 +2,8 @@
 
 Esta é uma avaliação manual, versionada com o repositório; não é um harness, teste automatizado nem evidência de que os cenários já foram executados. Rode cada caso em sessão controlada, sem dados reais ou efeitos externos. Use conteúdo sintético, ferramentas mockadas ou interrompa a ação antes do efeito. Não altere configuração de produção para executar a avaliação.
 
+Preserve este arquivo como especificação imutável dos casos v1. Para cada rodada, copie [o modelo de execução](run-template.md) para `docs/evaluations/runs/<data>-<sha-curto>.md`, registre a versão dos perfis e a evidência e mantenha resultados anteriores. Não escreva `PASS`/`FAIL` na especificação sem ter executado o cenário.
+
 ## Identificação da execução
 
 Preencha antes de cada rodada. Campos vazios significam **não executado**, não aprovação.
