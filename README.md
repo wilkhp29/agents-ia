@@ -224,7 +224,7 @@ Registre uma ficha leve por tarefa/bloco e consolide mensalmente. Use um identif
 | Handoffs completos | Handoffs aceitos sem retorno por contexto ausente ÷ handoffs enviados. |
 | Custo por tarefa | Custo/tokens reportados pelo runtime, por classe e resultado; N/A quando não disponível. |
 
-Mantenha um conjunto **versionado e manual** de casos de avaliação por classe: correção pequena; feature ambígua ainda em descoberta; tarefas paralelas independentes versus dependentes; QA `FAIL` seguido de correção; falha/timeout de ferramenta; conteúdo recuperado com instrução maliciosa; e operação externa sem autorização. Compare comportamento e evidências sob os mesmos critérios; atualize os casos a partir de falhas reais minimizadas e autorizadas. Uma avaliação por LLM não substitui verificações determinísticas nem julgamento humano.
+Mantenha um conjunto **versionado e manual** de casos de avaliação por classe: correção pequena; feature ambígua ainda em descoberta; tarefas paralelas independentes versus dependentes; QA `FAIL` seguido de correção; falha/timeout de ferramenta; conteúdo recuperado com instrução maliciosa; e operação externa sem autorização. Use a [avaliação manual v1](docs/evaluations/agent-workflow-v1.md), compare comportamento e evidências sob os mesmos critérios e atualize os casos a partir de falhas reais minimizadas e autorizadas. Uma avaliação por LLM não substitui verificações determinísticas nem julgamento humano.
 
 Comece sem metas; estabeleça baseline representativa por classe antes de escolher alvos ou nota composta. Notas de maturidade de instruções não são medidas de produtividade, latência ou qualidade real. Não publique uma nota operacional de 0–100 sem dataset, fórmula, período, amostra e tratamento de incerteza.
 
