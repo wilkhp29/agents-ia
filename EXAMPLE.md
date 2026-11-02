@@ -8,6 +8,8 @@ Este cenário é fictício e ilustra handoffs, aprovações e evidências; não 
 
 **product-lead:** conduz descoberta do `sdd-layout-ecc`: quem usará, problema, alternativa atual, sinal de sucesso e fora de escopo. Não presume público, plataforma, funcionalidades ou monetização. Registra perguntas que mudam o escopo e prepara critérios verificáveis.
 
+Antes do plano, audita o repositório alvo: instruções/stack; estado e destino Git Flow; testes/build/lint e CI; segurança/QA; e release/observabilidade se houver runtime. Para cada área informa `PRESENTE`, `AUSENTE`, `N/A` ou `DECISÃO NECESSÁRIA`, com evidência e responsável. Lacunas diretamente necessárias entram no mesmo plano aprovado; itens sem relação ficam como backlog.
+
 ## 2. Definição de produto
 
 `product-manager` organiza problema, MVP, critérios `DADO/QUANDO/ENTÃO` com IDs (`AC-1`, `AC-2`), estados de erro relevantes e decisões abertas. Marca como hipótese qualquer ideia não confirmada.
@@ -30,6 +32,8 @@ Quando houver interface, `product-designer` detalha tarefa, hierarquia, fluxo, e
 
 O handoff para engenharia usa o formato compacto `objetivo/fase | responsável | critérios | decisões/fora de escopo | riscos/limites | área | evidências/lacunas | saída/próximo passo`. Subtarefas independentes de pesquisa podem ocorrer em paralelo; implementação dependente de arquitetura espera sua decisão. O engenheiro roda primeiro a verificação rápida da área alterada e depois todas as checagens obrigatórias antes da entrega. Ao concluir, informa SHA-base, HEAD, arquivos, critérios cobertos, comandos/exit codes, riscos e lacunas, sem repetir em prosa o conteúdo do diff.
 
+Se a auditoria apontar um teste ou CI local ausente que impeça comprovar os critérios aprovados, o plano inclui sua criação e o engenheiro a implementa nessa mesma branch. Regras remotas, secrets, publicação, deploy ou acesso a produção são descritos como decisão/ação externa separada e só ocorrem com autorização explícita.
+
 O líder envia diff atualizado e snapshot ao `product-qa` somente leitura. QA registra uma linha por critério: `critério | resultado | evidência | verificação`. Registra SHA/diff revisado, ferramentas ou skills indisponíveis e lacunas. Em `FAIL`, o engenheiro corrige e apresenta novo diff e evidências; QA revisa o estado novo. Não se reutiliza um PASS de snapshot anterior.
 
 ## 7. Aquisição
@@ -42,7 +46,7 @@ O líder envia diff atualizado e snapshot ao `product-qa` somente leitura. QA re
 
 ## 9. Operação, documentação e domínio
 
-Antes do lançamento, `devops-sre` propõe deploy/rollback, SLOs, alertas, runbooks, limites de custo e resposta a falhas; publicar ou alterar produção exige aprovação explícita. `documentation-support` baseia conteúdo em comportamento confirmado. `domain-specialist` declara domínio e jurisdição, cita fontes/versões, registra incertezas e encaminha decisões profissionais a pessoas qualificadas.
+Antes do lançamento, `devops-sre` audita pipeline e recuperação, propõe deploy/rollback, SLOs, alertas, runbooks, limites de custo e resposta a falhas; publica ou altera produção só com aprovação explícita. Em biblioteca ou pacote sem runtime, deploy é `N/A`; valide artefato/instalação e rollback próprios do pacote. `documentation-support` baseia conteúdo em comportamento confirmado. `domain-specialist` declara domínio e jurisdição, cita fontes/versões, registra incertezas e encaminha decisões profissionais a pessoas qualificadas.
 
 ## 10. Fechamento e melhoria do processo
 

@@ -2,6 +2,8 @@
 
 Este repositório contém agentes globais do Codex versionados no Git. `product-lead` assume a coordenação quando acionado; toda solicitação de mudança de código passa pelo `software-engineer` e pelo gate terminal independente do `product-qa`.
 
+O líder também audita a prontidão do repositório de cada projeto, registra lacunas com evidências e inclui no plano as correções locais necessárias à tarefa. Depois da aprovação desse plano, os agentes especialistas executam os itens aprovados; lacunas não relacionadas viram backlog. A matriz reutilizável está em [Auditoria de prontidão](docs/project-readiness-checklist.md). Os perfis são instruções, não sandbox nem controle de acesso: ferramentas, permissões e efeitos externos continuam sujeitos ao runtime e à autorização humana.
+
 ## Agents
 
 | Agent | Responsabilidade |
@@ -36,6 +38,14 @@ O destino é `$CODEX_HOME/agents` quando `CODEX_HOME` está definido; caso contr
 O instalador preserva arquivos existentes por padrão. Se houver conflito de nome, ele interrompe sem substituir. Revise o conflito e, se realmente quiser substituir, execute `./install-agents.sh --replace`; os arquivos anteriores serão copiados para `$CODEX_HOME/agent-backups/` antes da substituição. Não versionamos nem copiamos arquivos globais preexistentes deste computador.
 
 Atualize o repositório via Git, revise as mudanças e execute novamente o instalador. Use `--replace` somente se aceitar substituir os agentes de mesmo nome.
+
+### Validar uma instalação e recuperar a versão anterior
+
+Antes de copiar perfis globalmente, execute `python3 scripts/validate_agent_package.py`. A validação usa somente a biblioteca padrão do Python 3.11+ para ler os TOMLs, comparar as tabelas do README e conferir links locais; também simula `--dry-run`, instalação, idempotência, backup e restauração em um diretório temporário `CODEX_HOME`. Ela não escreve em `~/.codex`.
+
+O workflow [Agent package validation](.github/workflows/agent-package-validation.yml) executa essas verificações em PRs para `develop`/`main` e em atualizações dessas branches. As actions de terceiros estão fixadas por SHA revisado, e o token de workflow tem somente `contents: read`. Esse CI valida o pacote e o instalador; não testa o comportamento de cada agente, a segurança do runtime Codex, configurações remotas ou qualquer produto consumidor.
+
+Identifique uma versão do pacote pelo SHA Git revisado ou por uma tag de release criada conforme autorização do repositório. Para instalação de produção no Codex, primeiro valide o checkout/SHA e rode a validação; depois use `--dry-run`, revise conflitos e execute `./install-agents.sh --replace` somente para os perfis aprovados. Registre o SHA instalado, quais perfis foram copiados ou substituídos e o diretório de backup informado. Para rollback, remova somente os perfis adicionados nessa instalação e restaure do backup somente os perfis substituídos; deixe intactos os perfis que já tinham conteúdo idêntico. Confirme nomes/conteúdo e reinicie o Codex. O smoke de CI testa esse procedimento apenas em diretório descartável.
 
 ## Skills e ferramentas por agente
 
@@ -182,7 +192,11 @@ Para instalações sem pin, confira atualizações com `npx skills check` e atua
 
 ### Git Flow
 
-Git Flow é o padrão para todos os repositórios Git desta equipe. Inspecione as instruções e o histórico antes de criar branches. Use `main` ou `master` como linha primária; crie `develop` localmente a partir da linha-base correta quando ela não existir; crie `feature/<slug>` a partir de `develop` para funcionalidades e `hotfix/<slug>` para correções urgentes da linha de produção. Se histórico, upstream ou alterações locais tornarem a base ambígua, preserve o estado e peça orientação ao líder. Para PR/MR, use o destino explicitamente indicado pelo usuário ou definido pelas instruções/política do repositório; sem definição, o padrão de uma feature Git Flow é `develop`. Após `product-qa PASS` e verificações locais verdes, a autorização persistente cobre publicar a branch da feature e abrir/atualizar esse PR/MR sem confirmação repetida. Se o destino exigido não existir remotamente, não use outro destino como fallback; peça orientação. Push fora desse fluxo, merge, release/tag e deploy não são autorizados automaticamente.
+Git Flow é requisito em todos os projetos desta equipe. Verifique o estado e a política remota antes de agir. A sequência padrão é `feature/<slug>` criada a partir de `develop` e PR para `develop`; uma release aprovada integra `develop` em `main`; hotfix parte do commit/tag efetivamente em produção em `main`, recebe PR para `main` e depois é integrado de volta em `develop`. Use branches `release/*` quando o projeto realmente precisar estabilizar uma versão. Neste repositório, `develop` foi criada no remoto a partir do `main` atualizado após o PR #7; a feature atual usa `develop` como integração.
+
+Se `develop` ou o destino esperado não existir num outro remoto, classifique como lacuna e registre a base candidata. A criação da branch remota e regras de proteção são operações externas: inclua alvo, origem, checks e efeito no plano e obtenha autorização explícita. Não crie ou escolha `main` como fallback silencioso. Depois de `product-qa PASS` e checks locais verdes, a autorização persistente cobre push da branch de feature e abertura/atualização do PR para o destino aprovado; merge, release/tag e deploy continuam humanos.
+
+No GitHub, a política remota deve exigir PR e os checks de CI aplicáveis em `develop` e `main`, impedir force-push e exclusão e documentar qualquer bypass. Quando houver uma única pessoa colaboradora, não exija uma segunda aprovação que impeça o próprio dono de integrar; mantenha a revisão manual do dono e os gates locais independentes de QA. Confirme as regras remotas efetivamente configuradas, pois README/TOML não as aplicam.
 
 ### Fases, aprovações e handoffs
 
@@ -223,10 +237,21 @@ Registre uma ficha leve por tarefa/bloco e consolide mensalmente. Use um identif
 | Tempo de ciclo | Tempo do início ao fim, por fase e por classe de tarefa, identificando espera e retrabalho. |
 | Handoffs completos | Handoffs aceitos sem retorno por contexto ausente ÷ handoffs enviados. |
 | Custo por tarefa | Custo/tokens reportados pelo runtime, por classe e resultado; N/A quando não disponível. |
+| Espera de revisão | Tempo entre PR aberto/solicitação de review e primeira revisão, usando timestamps do host Git. |
+| Confiabilidade de CI | Execuções que terminam com sucesso e duração por check; separe falha de código, runner e configuração. |
+| Resultado pós-integração | Lead time até deploy, frequência, falha de mudança, rollback/hotfix e tempo de recuperação, somente em produtos implantados e com fonte de evento autorizada. |
 
 Mantenha um conjunto **versionado e manual** de casos de avaliação por classe: correção pequena; feature ambígua ainda em descoberta; tarefas paralelas independentes versus dependentes; QA `FAIL` seguido de correção; falha/timeout de ferramenta; conteúdo recuperado com instrução maliciosa; e operação externa sem autorização. Use a [avaliação manual v1](docs/evaluations/agent-workflow-v1.md), compare comportamento e evidências sob os mesmos critérios e atualize os casos a partir de falhas reais minimizadas e autorizadas. Uma avaliação por LLM não substitui verificações determinísticas nem julgamento humano.
 
+Use fontes observáveis: eventos GitHub/GitLab para branches, PRs e review; logs de CI para duração/falhas; runtime para custo, latência e chamadas; plataforma de deploy para release, rollback e recuperação. Separe tempo ativo de fila/espera quando a fonte permitir e segmente por classe e risco. Ausência de integração é `N/A`; não invente timestamps.
+
 Comece sem metas; estabeleça baseline representativa por classe antes de escolher alvos ou nota composta. Notas de maturidade de instruções não são medidas de produtividade, latência ou qualidade real. Não publique uma nota operacional de 0–100 sem dataset, fórmula, período, amostra e tratamento de incerteza.
+
+### Release e operação ponta a ponta
+
+Para aplicações implantáveis, o `devops-sre` documenta artefato/commit, ambiente, dono, aprovação, smoke/health checks, janela de observação, condição de rollback e caminho de recuperação. Promova o mesmo artefato de staging para produção; use canary/feature flag quando o risco justificar. Não faça deploy ou altere produção sem autorização específica. Após incidentes ou defeitos escapados, transforme evidência minimizada em regressão/avaliação e encaminhe ao backlog.
+
+Para este pacote Codex, não existe aplicação em produção: a release é um conjunto versionado de perfis TOML. CI instala em `CODEX_HOME` temporário, compara conteúdo/permissões, exercita backup/restauração e valida o SHA. A instalação global continua uma ação consciente e reversível, com `--dry-run`, backup e verificação pós-instalação.
 
 Consulte [EXAMPLE.md](EXAMPLE.md) para um cenário fictício de handoff e revisão; ele não representa evidência de mercado.
 
