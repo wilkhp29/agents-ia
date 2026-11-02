@@ -198,19 +198,35 @@ Git Flow é o padrão para todos os repositórios Git desta equipe. Inspecione a
 
 Use três níveis para aplicar gates: **baixo** — mudança local, reversível e coberta pelo plano aprovado; prossiga sem confirmação adicional. **Médio** — mudança que afeta comportamento, arquitetura ou experiência, mas continua dentro dos critérios e limites aprovados; documente o impacto e evidência no handoff. **Alto** — mudança fora do plano, dados sensíveis, produção, publicação de produto/conteúdo, compra, gasto ou impacto material não aprovado; pare e obtenha autorização explícita antes de agir. A única exceção remota previamente autorizada é push da branch `feature/*` após `product-qa PASS` e abertura/atualização do PR/MR para o destino indicado pelo usuário/repositório (ou `develop` por padrão se não houver regra); push fora desse fluxo exige autorização específica e merge permanece humano.
 
+### Planejamento e execução proporcionais
+
+- **Pequeno/baixo risco:** um resumo, critérios curtos e especialista(s) estritamente necessários. Para código, engenharia delegada, Git Flow e QA terminal continuam obrigatórios.
+- **Padrão:** SDD e critérios DADO/QUANDO/ENTÃO, design/arquitetura quando necessários, plano de verificações e handoff integrado.
+- **Complexo/alto risco:** decomponha em marcos; inclua segurança, governança, domínio, design ou operação conforme o impacto; explicite dependências, limites e gates humanos.
+- Um líder integra o trabalho. Paralelize apenas subtarefas independentes, com resultados verificáveis e sem edição concorrente dos mesmos arquivos. Se mais de dois especialistas trabalharem em paralelo, registre a justificativa e o benefício esperado. O líder confere cobertura, duplicatas e contradições.
+- Encaminhe contexto mínimo suficiente: `objetivo/fase | responsável | critérios | decisões/fora de escopo | riscos/limites | área | evidências/lacunas | saída/próximo passo`. Omita o que não se aplica. Não peça relatório que repita diff ou saídas.
+- Rode cedo o menor conjunto de verificações determinísticas que testa o comportamento alterado; antes do handoff, rode todas as verificações obrigatórias e as relevantes ao risco. Correções reexecutam os testes afetados. Isso reduz espera sem dispensar segurança, QA ou critérios.
+- Se duas rodadas consecutivas não reduzirem uma pendência, pare o loop, apresente tentativas e evidência e peça a decisão necessária. Nunca repita QA para o mesmo snapshot. Use limites de passos/tempo/custo fornecidos pelo runtime; instruções do agente não aplicam limites técnicos. Quando não houver telemetria, marque o dado como indisponível e trabalhe por marcos, sem estimar custo como se medido.
+
 ### Indicadores do fluxo
 
-Registre mensalmente, por tarefa ou bloco, sem usar os números para pontuar pessoas:
+Registre uma ficha leve por tarefa/bloco e consolide mensalmente. Use um identificador técnico sem PII; registre somente dados autorizados e necessários. Capture duração por fase e custo/tokens apenas quando fornecidos pelo runtime. Campo indisponível fica `N/A`, nunca estimado. Não pontue indivíduos.
+
+**Ficha por tarefa:** `ID | classe de risco/complexidade | início/fim por fase | especialistas/handoffs | critérios aplicáveis e evidências | comandos/saídas | rodadas de QA | achados reabertos | custo/tokens (se disponível) | bloqueios/causa | resultado`. Para cada métrica, informe numerador/denominador e amostra; não misture classes muito diferentes sem segmentação.
 
 | Indicador | Definição |
 |---|---|
 | Aprovação na primeira revisão | Blocos que recebem `PASS` no primeiro QA ÷ blocos enviados ao QA. |
-| Reabertura de defeitos | Achados de QA marcados como resolvidos que reaparecem numa revisão posterior ÷ achados marcados como resolvidos. |
-| Cobertura de evidências | Critérios aplicáveis com evidência atual e verificável ÷ total de critérios aplicáveis. |
-| Rodadas de esclarecimento | Handoffs que voltam por falta de contexto ou decisão ÷ handoffs enviados. |
-| Tempo de ciclo | Tempo do início à conclusão, separado por fase para localizar espera e retrabalho. |
+| Reabertura de defeitos | Achados resolvidos que reaparecem numa revisão posterior ÷ achados marcados como resolvidos. |
+| Cobertura de evidências | Critérios aplicáveis com evidência atual e verificável ÷ critérios aplicáveis. |
+| Rodadas de esclarecimento | Handoffs que voltam por falta de contexto/decisão ÷ handoffs enviados. |
+| Tempo de ciclo | Tempo do início ao fim, por fase e por classe de tarefa, identificando espera e retrabalho. |
+| Handoffs completos | Handoffs aceitos sem retorno por contexto ausente ÷ handoffs enviados. |
+| Custo por tarefa | Custo/tokens reportados pelo runtime, por classe e resultado; N/A quando não disponível. |
 
-Comece sem metas; estabeleça baseline e contexto antes de escolher alvos. Use amostras e exemplos para entender causas, não para incentivar velocidade em detrimento da qualidade.
+Mantenha um conjunto **versionado e manual** de casos de avaliação por classe: correção pequena; feature ambígua ainda em descoberta; tarefas paralelas independentes versus dependentes; QA `FAIL` seguido de correção; falha/timeout de ferramenta; conteúdo recuperado com instrução maliciosa; e operação externa sem autorização. Compare comportamento e evidências sob os mesmos critérios; atualize os casos a partir de falhas reais minimizadas e autorizadas. Uma avaliação por LLM não substitui verificações determinísticas nem julgamento humano.
+
+Comece sem metas; estabeleça baseline representativa por classe antes de escolher alvos ou nota composta. Notas de maturidade de instruções não são medidas de produtividade, latência ou qualidade real. Não publique uma nota operacional de 0–100 sem dataset, fórmula, período, amostra e tratamento de incerteza.
 
 Consulte [EXAMPLE.md](EXAMPLE.md) para um cenário fictício de handoff e revisão; ele não representa evidência de mercado.
 

@@ -18,7 +18,7 @@ O líder pode encaminhar ao `deep-researcher` uma pergunta, segmento, geografia 
 
 ## 4. Arquitetura, plano e aprovação
 
-Após critérios aprovados, `software-architect` compara opções conforme equipe, orçamento e ambiente. A recomendação inclui trade-offs e riscos. O líder apresenta plano ligado aos critérios e explicita escopo, verificações e gates. A aprovação do plano pode autorizar implementação dentro desse escopo; uma aprovação anterior de pesquisa não autoriza desenvolvimento. Passos reversíveis cobertos pelo plano não pedem confirmação repetida. Mudanças de escopo, risco, custo ou acesso a dados voltam ao usuário.
+O líder classifica o esforço e escolhe o menor fluxo que preserva os gates: uma correção pequena recebe critérios curtos e somente o especialista necessário; esta feature de finanças recebe SDD completo, porque domínio, privacidade e segurança mudam as decisões. Após critérios aprovados, `software-architect` compara opções conforme equipe, orçamento e ambiente. O líder apresenta plano ligado aos critérios e explicita escopo, verificações e gates. A aprovação do plano pode autorizar implementação dentro desse escopo; uma aprovação anterior de pesquisa não autoriza desenvolvimento. Passos reversíveis cobertos pelo plano não pedem confirmação repetida. Mudanças de escopo, risco, custo ou acesso a dados voltam ao usuário.
 
 ## 5. Design da experiência
 
@@ -28,7 +28,7 @@ Quando houver interface, `product-designer` detalha tarefa, hierarquia, fluxo, e
 
 `software-engineer` consulta a base de conhecimento disponível e segue Git Flow. Usa `develop` como base de `feature/*`; se `develop` não existir, cria-a localmente a partir da linha primária (`main` ou `master`) que preserva a integração. Em caso de histórico, upstream ou alterações locais ambíguas, preserva o estado e consulta o líder.
 
-O handoff para engenharia identifica objetivo/fase, responsável, critérios, decisões, fora de escopo, riscos, áreas esperadas, evidências e resultado esperado. Ao concluir, o engenheiro informa SHA-base, HEAD atual, arquivos alterados, critérios cobertos, comandos com resultados/exit codes e lacunas.
+O handoff para engenharia usa o formato compacto `objetivo/fase | responsável | critérios | decisões/fora de escopo | riscos/limites | área | evidências/lacunas | saída/próximo passo`. Subtarefas independentes de pesquisa podem ocorrer em paralelo; implementação dependente de arquitetura espera sua decisão. O engenheiro roda primeiro a verificação rápida da área alterada e depois todas as checagens obrigatórias antes da entrega. Ao concluir, informa SHA-base, HEAD, arquivos, critérios cobertos, comandos/exit codes, riscos e lacunas, sem repetir em prosa o conteúdo do diff.
 
 O líder envia diff atualizado e snapshot ao `product-qa` somente leitura. QA registra uma linha por critério: `critério | resultado | evidência | verificação`. Registra SHA/diff revisado, ferramentas ou skills indisponíveis e lacunas. Em `FAIL`, o engenheiro corrige e apresenta novo diff e evidências; QA revisa o estado novo. Não se reutiliza um PASS de snapshot anterior.
 
@@ -38,7 +38,7 @@ O líder envia diff atualizado e snapshot ao `product-qa` somente leitura. QA re
 
 ## 8. Métricas e governança
 
-`data-analyst` define eventos, fórmulas, funis e qualidade; separa observações de hipóteses e aponta limites de privacidade. `governance-specialist` identifica riscos, responsáveis, controles, avaliações e questões que precisam de decisão humana. Nenhum certifica conformidade ou acessa dados sem autorização.
+`data-analyst` define eventos, fórmulas, funis e qualidade; separa observações de hipóteses e aponta limites de privacidade. `governance-specialist` identifica riscos, responsáveis, controles, avaliações e questões que precisam de decisão humana. Nenhum certifica conformidade ou acessa dados sem autorização. O líder reúne os resultados paralelos, verifica contradições e mantém ownership da decisão integrada.
 
 ## 9. Operação, documentação e domínio
 
@@ -46,7 +46,7 @@ Antes do lançamento, `devops-sre` propõe deploy/rollback, SLOs, alertas, runbo
 
 ## 10. Fechamento e melhoria do processo
 
-O líder só encerra com critérios e gates aplicáveis evidenciados, pendências e itens fora de escopo declarados. Mensalmente, a equipe observa aprovação na primeira revisão, reabertura de achados, cobertura de evidências, rodadas de esclarecimento e tempo por fase. Mede baseline antes de estabelecer metas e usa os dados para melhorar o sistema, não pontuar indivíduos.
+O líder só encerra com critérios e gates aplicáveis evidenciados, pendências e itens fora de escopo declarados. A ficha leve da tarefa registra classe, duração por fase, especialistas/handoffs, critérios e evidências, rodadas QA, achados reabertos, bloqueios e custo/tokens apenas se o runtime os fornecer. Mensalmente, a equipe segmenta aprovação na primeira revisão, reabertura, cobertura de evidências, handoffs devolvidos, tempo de ciclo e custo por classe. Mede baseline antes de estabelecer metas; não estima dados ausentes nem pontua indivíduos. Uma nota de 0–100 só é operacional depois de avaliação versionada, fórmula publicada, amostra representativa e incerteza declarada.
 
 ## 11. Compra empresarial faturada
 
