@@ -68,6 +68,16 @@ def profile_dir(value: str | None) -> Path:
     return ROOT / "agents"
 
 
+def profile_source_identifier(value: str | None) -> str:
+    directory = profile_dir(value).resolve()
+    if directory == (ROOT / "agents").resolve():
+        return "workspace-agents"
+    codex_home = os.environ.get("CODEX_HOME")
+    if codex_home and directory == (Path(codex_home).expanduser().resolve() / "agents"):
+        return "CODEX_HOME/agents"
+    return "custom-directory"
+
+
 def fingerprints(directory: Path, suite: dict[str, Any]) -> dict[str, str]:
     names = sorted({name for case in suite["cases"] for name in case["profiles"]})
     result: dict[str, str] = {}
@@ -124,12 +134,12 @@ def prepare(args: argparse.Namespace) -> Path:
         "suite": suite["suite"],
         "suite_sha256": sha256(SUITE.read_bytes()),
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "repository": str(ROOT),
+        "repository": ROOT.name,
         "git": {"branch": git_output("branch", "--show-current"), "commit": commit, "dirty": dirty,
                 "snapshot_reproducible": not dirty, "status_sha256": sha256(status_bytes),
                 "tracked_diff_sha256": diff_hash},
         "runtime": {"name": "PENDING", "version": "PENDING", "profile_load_identity_verified": False},
-        "profiles": {"source_directory": str(profile_dir(args.profiles)), "sha256": profiles},
+        "profiles": {"source_directory": profile_source_identifier(args.profiles), "sha256": profiles},
         "repetitions_requested": args.runs,
         "selected_case_ids": [case["id"] for case in chosen],
         "safety": {"isolated_fixture_or_worktree": False, "external_tools_mocked_fail_closed": False, "operator_note": "Set true only after recording the actual isolated setup and blocked external tools."},

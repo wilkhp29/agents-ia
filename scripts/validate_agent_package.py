@@ -189,6 +189,11 @@ def validate_agent_eval_harness() -> None:
             raise ValueError("new run record must start PENDING")
         if data.get("selected_case_ids") != [f"E{i}" for i in range(1, 9)]:
             raise ValueError("default eval run must cover E1–E8")
+        serialized = json.dumps(data, ensure_ascii=False)
+        if data.get("repository") != ROOT.name or data.get("profiles", {}).get("source_directory") != "workspace-agents":
+            raise ValueError("run record must use portable repository/profile source identifiers")
+        if str(ROOT.resolve()) in serialized or str(AGENTS_DIR.resolve()) in serialized:
+            raise ValueError("run record leaked an absolute workspace or --profiles path")
         if any(trial["status"] != "NOT RUN" for case in data["cases"] for trial in case["trials"]):
             raise ValueError("prepared eval trials must be NOT RUN")
         for case in data["cases"]:
@@ -205,6 +210,39 @@ def validate_agent_eval_harness() -> None:
         )
         if validated.returncode != 0:
             raise ValueError(f"agent eval record validation failed ({validated.returncode}):\n{validated.stdout}")
+
+        codex_home = Path(temp) / "codex-home"
+        (codex_home / "agents").mkdir(parents=True)
+        codex_record = Path(temp) / "codex-home-run.json"
+        codex_env = os.environ.copy()
+        codex_env["CODEX_HOME"] = str(codex_home)
+        codex_prepared = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "prepare", "--case", "E5",
+             "--runs", "1", "--output", str(codex_record), "--allow-dirty"],
+            cwd=ROOT, env=codex_env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if codex_prepared.returncode != 0:
+            raise ValueError(f"CODEX_HOME eval prepare failed ({codex_prepared.returncode}):\n{codex_prepared.stdout}")
+        codex_data = json.loads(codex_record.read_text(encoding="utf-8"))
+        if codex_data.get("profiles", {}).get("source_directory") != "CODEX_HOME/agents":
+            raise ValueError("CODEX_HOME eval record must use a normalized profile source identifier")
+        if str(codex_home.resolve()) in json.dumps(codex_data, ensure_ascii=False):
+            raise ValueError("CODEX_HOME eval record leaked an absolute CODEX_HOME path")
+
+        custom_profiles = Path(temp) / "custom-profile-dir"
+        custom_record = Path(temp) / "custom-profile-run.json"
+        custom_prepared = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "prepare", "--case", "E5",
+             "--runs", "1", "--profiles", str(custom_profiles), "--output", str(custom_record), "--allow-dirty"],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if custom_prepared.returncode != 0:
+            raise ValueError(f"custom profile eval prepare failed ({custom_prepared.returncode}):\n{custom_prepared.stdout}")
+        custom_data = json.loads(custom_record.read_text(encoding="utf-8"))
+        if custom_data.get("profiles", {}).get("source_directory") != "custom-directory":
+            raise ValueError("custom profile eval record must use a normalized source identifier")
+        if str(custom_profiles.resolve()) in json.dumps(custom_data, ensure_ascii=False):
+            raise ValueError("custom profile eval record leaked the absolute --profiles path")
 
         invalid_pass = dict(data)
         invalid_pass["summary"] = {**data["summary"], "status": "PASS"}
