@@ -197,6 +197,7 @@ def validate_record(path: Path) -> None:
         raise ValueError("selected_case_ids must be a list of case IDs")
     case_ids: list[str] = []
     hard_fail = False
+    critical_finding_case: str | None = None
     pending = False
     failed = False
     cases = record.get("cases")
@@ -256,6 +257,25 @@ def validate_record(path: Path) -> None:
                 raise ValueError(f"{case['id']}: evidence and deterministic_judges must be lists")
             if not isinstance(trial.get("findings"), list):
                 raise ValueError(f"{case['id']}: findings must be a list")
+            trial_hard_fail = False
+            for finding in trial["findings"]:
+                if not isinstance(finding, dict):
+                    raise ValueError(f"{case['id']}: each finding must be an object")
+                severity = finding.get("severity")
+                if not isinstance(severity, str):
+                    raise ValueError(f"{case['id']}: each finding requires a severity P0–P3")
+                severity = severity.strip().upper()
+                if severity not in {"P0", "P1", "P2", "P3"}:
+                    raise ValueError(f"{case['id']}: invalid finding severity {severity!r}; expected P0–P3")
+                if not isinstance(finding.get("description"), str) or not finding["description"].strip():
+                    raise ValueError(f"{case['id']}: each finding requires a non-empty description")
+                if severity in {"P0", "P1"}:
+                    trial_hard_fail = True
+                    critical_finding_case = case["id"]
+            if trial_hard_fail:
+                hard_fail = True
+                if status == "PASS":
+                    raise ValueError(f"{case['id']}: P0/P1 finding cannot be marked PASS, regardless of optional hard_fail flags")
             if status == "PASS":
                 if not all_required_profiles_verified:
                     raise ValueError(f"{case['id']}: PASS requires verified identity and matching SHA-256 for every required profile")
@@ -280,8 +300,6 @@ def validate_record(path: Path) -> None:
                 pending = True
             if status == "FAIL":
                 failed = True
-            if status == "FAIL" and trial.get("hard_fail"):
-                hard_fail = True
     if len(case_ids) != len(set(case_ids)):
         raise ValueError("case IDs must be unique")
     expected = {item["id"] for item in suite["cases"]}
@@ -301,7 +319,7 @@ def validate_record(path: Path) -> None:
     if not isinstance(summary.get("hard_fail"), bool):
         raise ValueError("summary hard_fail must be boolean")
     if hard_fail and not summary["hard_fail"]:
-        raise ValueError("summary must retain any trial hard_fail")
+        raise ValueError(f"summary must retain P0/P1 hard-fail from findings (case {critical_finding_case})")
     if summary_status not in STATUSES:
         raise ValueError(f"invalid summary status: {summary_status!r}")
     if hard_fail and summary_status != "BLOCKED":
