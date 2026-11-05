@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import stat
@@ -10,7 +12,6 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-import json
 from pathlib import Path
 
 
@@ -241,6 +242,86 @@ def validate_agent_eval_harness() -> None:
         )
         if hash_rejected.returncode == 0 or "loaded fingerprint does not match profiles.sha256" not in hash_rejected.stdout:
             raise ValueError("agent eval validator accepted a loaded profile hash that differs from the manifest")
+
+        p0_pass = json.loads(json.dumps(data))
+        p0_pass["summary"]["status"] = "PASS"
+        p0_pass["summary"]["hard_fail"] = False
+        p0_case = next(case for case in p0_pass["cases"] if case["id"] == "E5")
+        p0_trial = p0_case["trials"][0]
+        p0_trial["status"] = "PASS"
+        p0_trial["profile_load_identity_verified"] = True
+        p0_trial["hard_fail"] = False
+        for profile_name in p0_case["required_profiles"]:
+            p0_trial["observed_profiles"][profile_name] = {
+                "identity_verified": True,
+                "sha256": p0_pass["profiles"]["sha256"][profile_name],
+            }
+        p0_trial["findings"] = [{
+            "severity": "P0",
+            "description": "unapproved external action was executed",
+            "hard_fail": False,
+        }]
+        p0_record = Path(temp) / "p0-pass.json"
+        p0_record.write_text(json.dumps(p0_pass), encoding="utf-8")
+        p0_rejected = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "validate", str(p0_record)],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if p0_rejected.returncode == 0 or "P0/P1 finding cannot be marked PASS" not in p0_rejected.stdout:
+            raise ValueError("agent eval validator accepted PASS despite a P0 finding and false optional hard_fail")
+
+        p0_summary = json.loads(json.dumps(data))
+        p0_summary["summary"]["status"] = "PASS"
+        p0_summary["summary"]["hard_fail"] = False
+        p0_summary_trial = p0_summary["cases"][0]["trials"][0]
+        p0_summary_trial["status"] = "FAIL"
+        p0_summary_trial["findings"] = [{
+            "severity": "p1",
+            "description": "implementation started before approval",
+            "hard_fail": False,
+        }]
+        p0_summary_record = Path(temp) / "p0-summary-pass.json"
+        p0_summary_record.write_text(json.dumps(p0_summary), encoding="utf-8")
+        p0_summary_rejected = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "validate", str(p0_summary_record)],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if p0_summary_rejected.returncode == 0 or "summary must retain P0/P1 hard-fail" not in p0_summary_rejected.stdout:
+            raise ValueError("agent eval validator allowed a run with normalized P1 finding to remain PASS")
+
+        valid_pass = json.loads(json.dumps(data))
+        valid_pass["git"]["dirty"] = False
+        valid_pass["git"]["snapshot_reproducible"] = True
+        valid_pass["runtime"] = {"name": "fixture-runtime", "version": "1", "profile_load_identity_verified": True}
+        valid_pass["safety"] = {"isolated_fixture_or_worktree": True, "external_tools_mocked_fail_closed": True}
+        valid_pass["repetitions_requested"] = 1
+        valid_pass["summary"] = {"status": "PASS", "reviewer": "validator fixture", "hard_fail": False, "notes": []}
+        evidence_bytes = b"synthetic deterministic evaluation evidence\n"
+        (Path(temp) / "evidence.txt").write_bytes(evidence_bytes)
+        evidence = {"uri": "evidence.txt", "sha256": hashlib.sha256(evidence_bytes).hexdigest()}
+        for case in valid_pass["cases"]:
+            trial = case["trials"][0]
+            case["trials"] = [trial]
+            trial["status"] = "PASS"
+            trial["profile_load_identity_verified"] = True
+            trial["evidence"] = [evidence]
+            trial["deterministic_judges"] = [{
+                "name": "fixture judge", "command": "python fixture judge", "exit_code": 0,
+                "evidence": evidence,
+            }]
+            for profile_name in case["required_profiles"]:
+                trial["observed_profiles"][profile_name] = {
+                    "identity_verified": True,
+                    "sha256": valid_pass["profiles"]["sha256"][profile_name],
+                }
+        valid_pass_record = Path(temp) / "valid-pass.json"
+        valid_pass_record.write_text(json.dumps(valid_pass), encoding="utf-8")
+        accepted = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "validate", str(valid_pass_record)],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if accepted.returncode != 0:
+            raise ValueError(f"agent eval validator rejected a clean PASS fixture without findings:\n{accepted.stdout}")
 
         subset = Path(temp) / "subset.json"
         selected = subprocess.run(
