@@ -67,22 +67,53 @@ def validate_profiles() -> set[str]:
 
 
 def validate_egm_wrappers() -> None:
-    for profile, persona in EGM_WRAPPERS.items():
-        path = AGENTS_DIR / f"{profile}.toml"
-        if not path.is_file():
-            raise ValueError(f"missing named EGM wrapper: {path.name}")
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-        instructions = data["developer_instructions"]
+    def validate_instruction_text(profile: str, instructions: str) -> None:
+        persona = EGM_WRAPPERS[profile]
         required = (
             f"agents/{persona}.md",
             EGM_PIN,
             "BLOCKED: persona EGM não carregada",
             "AGENTS.md",
             "não criam sandbox",
+            "inclusive o caminho derivado do skill ativo",
+            "expected_origin=https://github.com/google/elephant-goldfish-model.git",
+            'git -C "$plugin_root" remote get-url origin',
+            'git -C "$plugin_root" rev-parse --verify HEAD',
+            'test "$actual_origin" = "$expected_origin"',
+            'test "$actual_commit" = "$expected_commit"',
+            f'git -C "$plugin_root" cat-file -e "$expected_commit:agents/{persona}.md"',
+            f'git -C "$plugin_root" diff --quiet "$expected_commit" -- "agents/{persona}.md"',
         )
         missing = [item for item in required if item not in instructions]
         if missing:
-            raise ValueError(f"{path.name} lacks required EGM identity/isolation controls: {missing}")
+            raise ValueError(f"{profile} lacks required EGM identity/isolation controls: {missing}")
+        proof_position = instructions.index('git -C "$plugin_root" rev-parse --verify HEAD')
+        read_position = instructions.index(f"Somente depois de todos esses checks passarem, leia `agents/{persona}.md`")
+        if proof_position >= read_position:
+            raise ValueError(f"{profile} reads the persona before verifying the selected bundle pin")
+        if "Se o caminho ativo existir mas não passar na verificação abaixo, bloqueie" not in instructions:
+            raise ValueError(f"{profile} may silently fall back when the active skill path fails pin verification")
+
+    for profile in EGM_WRAPPERS:
+        persona = EGM_WRAPPERS[profile]
+        path = AGENTS_DIR / f"{profile}.toml"
+        if not path.is_file():
+            raise ValueError(f"missing named EGM wrapper: {path.name}")
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+        instructions = data["developer_instructions"]
+        validate_instruction_text(profile, instructions)
+        # Regression: even if the pin-check text still exists, moving it after
+        # the active-skill persona read must be rejected.
+        marker = f"Somente depois de todos esses checks passarem, leia `agents/{persona}.md`"
+        proof = 'git -C "$plugin_root" rev-parse --verify HEAD'
+        bypass = instructions.replace(proof, "PIN_CHECK_MOVED")
+        bypass = bypass.replace(marker, marker + "\n" + proof).replace("PIN_CHECK_MOVED", "")
+        try:
+            validate_instruction_text(profile, bypass)
+        except ValueError:
+            pass
+        else:
+            raise ValueError(f"{path.name}: validator accepted active-skill persona use before pin verification")
     for path in AGENTS_DIR.glob("egm-*.toml"):
         text = path.read_text(encoding="utf-8")
         if re.search(r"(?<![A-Za-z0-9])/(?:Users|home)/", text):
