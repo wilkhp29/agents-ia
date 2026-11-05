@@ -25,6 +25,13 @@ O líder também audita a prontidão do repositório de cada projeto, registra l
 | `domain-specialist` | Regras, terminologia, evidências e limites de um domínio configurado para cada produto. |
 | `hacking` | Bug bounty autorizado: pesquisa dentro do escopo e das regras oficiais, com REA como apoio e relatório sem submissão automática. |
 | `product-qa` | Gate terminal somente leitura de critérios, produto e segurança em cada bloco de engenharia. |
+| `egm-comprehension` | Revisão nomeada EGM de ambiguidades, pressupostos, conceitos e perguntas em aberto. |
+| `egm-zoom-out` | Revisão nomeada EGM de oportunidade, alinhamento, usuários, alternativas e prioridades. |
+| `egm-design` | Revisão nomeada EGM de arquitetura, escala, economia, dependências e riscos. |
+| `egm-structural` | Revisão nomeada EGM de consistência, requisitos, estados, integrações e casos de borda. |
+| `egm-style` | Revisão nomeada EGM de clareza, organização, terminologia e legibilidade. |
+| `egm-implementation-readiness` | Revisão nomeada EGM de critérios, decisões, contratos e verificações antes de implementar. |
+| `egm-codebase-details` | Mapeamento nomeado EGM do código-base relacionado a uma proposta, somente leitura por instrução. |
 
 ## Instalar globalmente no Codex
 
@@ -33,7 +40,7 @@ O líder também audita a prontidão do repositório de cada projeto, registra l
 3. Instale: `./install-agents.sh`.
 4. Reinicie o Codex caso os agentes não apareçam.
 
-O destino é `$CODEX_HOME/agents` quando `CODEX_HOME` está definido; caso contrário, `$HOME/.codex/agents`. Não é necessário adicionar credenciais ou configurar integrações externas.
+O destino é `$CODEX_HOME/agents` quando `CODEX_HOME` está definido; caso contrário, `$HOME/.codex/agents`. Esses arquivos incluem wrappers Codex nomeados para personas EGM. Instale separadamente o plugin EGM para que os wrappers possam localizar as personas upstream; os wrappers não copiam o plugin nem instalam as skills. Não é necessário adicionar credenciais ou configurar integrações externas.
 
 O instalador preserva arquivos existentes por padrão. Se houver conflito de nome, ele interrompe sem substituir. Revise o conflito e, se realmente quiser substituir, execute `./install-agents.sh --replace`; os arquivos anteriores serão copiados para `$CODEX_HOME/agent-backups/` antes da substituição. Não versionamos nem copiamos arquivos globais preexistentes deste computador.
 
@@ -49,7 +56,7 @@ Identifique uma versão do pacote pelo SHA Git revisado ou por uma tag de releas
 
 ## Skills e ferramentas por agente
 
-O pacote contém 17 perfis em `agents/*.toml`. A tabela mostra referências e recursos de runtime declarados nos perfis, separando requisitos do processo e integrações condicionais. A disponibilidade depende da sua instalação do Codex e das conexões feitas nela; os perfis não instalam ferramentas, credenciais, servidores MCP, navegadores ou dependências do seu produto.
+O pacote contém 24 perfis em `agents/*.toml`. A tabela mostra referências e recursos de runtime declarados nos perfis, separando requisitos do processo e integrações condicionais. A disponibilidade depende da sua instalação do Codex e das conexões feitas nela; os perfis não instalam ferramentas, credenciais, servidores MCP, navegadores ou dependências do seu produto.
 
 | Agente | Skills e práticas | Ferramentas/conexões usadas quando disponíveis |
 |---|---|---|
@@ -70,6 +77,13 @@ O pacote contém 17 perfis em `agents/*.toml`. A tabela mostra referências e re
 | `domain-specialist` | Nenhuma skill externa nomeada no perfil; conhecimento do domínio precisa ser identificado por tarefa | Busca/documentação oficial (necessárias quando regras podem mudar); domínio, jurisdição e versão delimitados |
 | `hacking` | Nenhuma skill externa nomeada no perfil; procedimento e limites bug bounty definidos pelo perfil | REA MCP para reverse engineering/evidência (condicional; configure no Codex e confirme disponibilidade); política oficial do programa e autorização por avaliação são obrigatórias |
 | `product-qa` | ECC `security-review`/`security-scan` (quando disponíveis para mudança de código); ECC de stack condicional; Impeccable condicional a UI | Diff e saídas do executor; scanner/browser/capturas somente conforme aplicabilidade e disponibilidade; somente leitura, sem delegar/corrigir |
+| `egm-comprehension` | Persona EGM `comprehension`; revisão de ambiguidade e pressupostos | Bundle EGM fixado e documento selecionado |
+| `egm-zoom-out` | Persona EGM `zoom_out`; revisão de oportunidade e alinhamento | Bundle EGM fixado e brief/fontes selecionadas |
+| `egm-design` | Persona EGM `design_critic`; revisão de arquitetura e riscos | Bundle EGM fixado e especificação/fontes selecionadas |
+| `egm-structural` | Persona EGM `structural`; revisão de consistência e cobertura | Bundle EGM fixado e especificação selecionada |
+| `egm-style` | Persona EGM `style`; revisão editorial | Bundle EGM fixado e documento selecionado |
+| `egm-implementation-readiness` | Persona EGM `implementation_readiness`; revisão de prontidão | Bundle EGM fixado e critérios/limites aprovados |
+| `egm-codebase-details` | Persona EGM `codebase_details`; mapeamento somente leitura por instrução | Bundle EGM fixado e arquivos do projeto pertinentes |
 
 ### O que vem do Codex e o que precisa ser configurado
 
@@ -192,7 +206,7 @@ Para instalações sem pin, confira atualizações com `npx skills check` e atua
 
 Para features médias/grandes com decisões de produto, UX ou arquitetura, `product-lead` pode usar EGM para brainstorm, draft e revisão Goldfish antes de pedir a aprovação de implementação. Os achados são consolidados no plano aprovado já existente; não se pede uma aprovação humana duplicada. Correções pequenas podem seguir o fluxo curto. EGM não substitui testes, revisão de código ou `product-qa`.
 
-O [guia detalhado](docs/delivery-playbook.md#egm-opcional-na-especificação) documenta seleção, artefatos, limitações do contexto do Codex e os passos de instalação do plugin completo. O pacote de agentes não instala plugins de terceiros no Codex global. Confirme skills e capacidade de fresh-context no runtime antes de prometer uma revisão Goldfish.
+O [guia detalhado](docs/delivery-playbook.md#egm-opcional-na-especificação) documenta seleção, artefatos, os wrappers nomeados deste pacote, limitações do contexto do Codex e os passos de instalação do plugin. O EGM upstream não registra suas personas como subagentes nomeados no Codex; nossos wrappers tornam a seleção de papel explícita, conforme suporte atual a agentes Codex TOML. Isso prova a configuração do papel, não prova que o runtime o selecionou, que a persona foi lida, nem que o contexto ficou cego. Confirme esses itens no resultado real de cada execução. O pacote não instala plugins de terceiros.
 
 ## Fluxo padrão
 
