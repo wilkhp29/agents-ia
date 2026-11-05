@@ -7,6 +7,8 @@ import hashlib
 import json
 import os
 import re
+import shlex
+import shutil
 import stat
 import subprocess
 import sys
@@ -21,6 +23,16 @@ README = ROOT / "README.md"
 INSTALLER = ROOT / "install-agents.sh"
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)")
 AGENT_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|", re.MULTILINE)
+EGM_PIN = "0dfb5bf3eebd551d1e805c3ab16cbaa9b1c2c42a"
+EGM_WRAPPERS = {
+    "egm-comprehension": "comprehension",
+    "egm-zoom-out": "zoom_out",
+    "egm-design": "design_critic",
+    "egm-structural": "structural",
+    "egm-style": "style",
+    "egm-implementation-readiness": "implementation_readiness",
+    "egm-codebase-details": "codebase_details",
+}
 
 
 def heading_section(text: str, heading: str) -> str:
@@ -54,6 +66,210 @@ def validate_profiles() -> set[str]:
         names.add(name)
     print(f"TOML profiles: PASS ({len(paths)})")
     return names
+
+
+def validate_egm_wrappers() -> None:
+    def validate_instruction_text(profile: str, instructions: str) -> None:
+        persona = EGM_WRAPPERS[profile]
+        required = (
+            f"agents/{persona}.md",
+            EGM_PIN,
+            "BLOCKED: persona EGM não carregada",
+            "AGENTS.md",
+            "não criam sandbox",
+            "inclusive o caminho derivado do skill ativo",
+            "expected_origin=https://github.com/google/elephant-goldfish-model.git",
+            "set -eu\nexpected_commit=",
+            'git -C "$plugin_root" remote get-url origin',
+            'git -C "$plugin_root" rev-parse --verify HEAD',
+            'test "$actual_origin" = "$expected_origin"',
+            'test "$actual_commit" = "$expected_commit"',
+            f'git -C "$plugin_root" cat-file -e "${{expected_commit}}:agents/{persona}.md"',
+            f'git -C "$plugin_root" diff --quiet "$expected_commit" -- "agents/{persona}.md"',
+        )
+        missing = [item for item in required if item not in instructions]
+        if missing:
+            raise ValueError(f"{profile} lacks required EGM identity/isolation controls: {missing}")
+        proof_position = instructions.index('git -C "$plugin_root" rev-parse --verify HEAD')
+        read_position = instructions.index(f"Somente depois de todos esses checks passarem, leia `agents/{persona}.md`")
+        if proof_position >= read_position:
+            raise ValueError(f"{profile} reads the persona before verifying the selected bundle pin")
+        if "Se o caminho ativo existir mas não passar na verificação abaixo, bloqueie" not in instructions:
+            raise ValueError(f"{profile} may silently fall back when the active skill path fails pin verification")
+        if f'"$expected_commit:agents/{persona}.md"' in instructions:
+            raise ValueError(f"{profile} uses zsh-sensitive unbraced commit interpolation before the path colon")
+
+    for profile in EGM_WRAPPERS:
+        persona = EGM_WRAPPERS[profile]
+        path = AGENTS_DIR / f"{profile}.toml"
+        if not path.is_file():
+            raise ValueError(f"missing named EGM wrapper: {path.name}")
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+        instructions = data["developer_instructions"]
+        validate_instruction_text(profile, instructions)
+        # Regression: even if the pin-check text still exists, moving it after
+        # the active-skill persona read must be rejected.
+        marker = f"Somente depois de todos esses checks passarem, leia `agents/{persona}.md`"
+        proof = 'git -C "$plugin_root" rev-parse --verify HEAD'
+        bypass = instructions.replace(proof, "PIN_CHECK_MOVED")
+        bypass = bypass.replace(marker, marker + "\n" + proof).replace("PIN_CHECK_MOVED", "")
+        try:
+            validate_instruction_text(profile, bypass)
+        except ValueError:
+            pass
+        else:
+            raise ValueError(f"{path.name}: validator accepted active-skill persona use before pin verification")
+        # Regression: zsh treats the colon after an unbraced parameter as a
+        # parameter modifier. The exact invalid form must be rejected.
+        unbraced = instructions.replace(
+            f'"${{expected_commit}}:agents/{persona}.md"',
+            f'"$expected_commit:agents/{persona}.md"',
+        )
+        try:
+            validate_instruction_text(profile, unbraced)
+        except ValueError:
+            pass
+        else:
+            raise ValueError(f"{path.name}: validator accepted zsh-sensitive unbraced commit interpolation")
+        fail_fast_removed = instructions.replace("set -eu\nexpected_commit=", "expected_commit=", 1)
+        try:
+            validate_instruction_text(profile, fail_fast_removed)
+        except ValueError:
+            pass
+        else:
+            raise ValueError(f"{path.name}: validator accepted an identity-check block without fail-fast")
+    for path in AGENTS_DIR.glob("egm-*.toml"):
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"(?<![A-Za-z0-9])/(?:Users|home)/", text):
+            raise ValueError(f"{path.name} contains a machine-specific absolute path")
+    print(f"Named EGM wrappers: PASS ({len(EGM_WRAPPERS)} persona mappings, pin and isolation caveats)")
+
+
+def validate_egm_shell_commands() -> None:
+    """Run checks and negative cases in bash/zsh without outer fail-fast flags."""
+    shells: list[tuple[str, list[str], list[str]]] = [
+        ("bash", ["bash", "--noprofile", "--norc", "-u", "-c"], ["bash", "--noprofile", "--norc", "-n", "-c"])
+    ]
+    zsh_path = shutil.which("zsh")
+    if zsh_path:
+        shells.append(("zsh", [zsh_path, "-f", "-u", "-c"], [zsh_path, "-f", "-n", "-c"]))
+
+    with tempfile.TemporaryDirectory(prefix="egm-shell-fixture-") as temp:
+        fixture = Path(temp) / "egm bundle with spaces"
+        (fixture / "agents").mkdir(parents=True)
+        for persona in EGM_WRAPPERS.values():
+            (fixture / "agents" / f"{persona}.md").write_text(f"# {persona}\n", encoding="utf-8")
+        commands = [
+            ["git", "init", str(fixture)],
+            ["git", "-C", str(fixture), "remote", "add", "origin", "https://github.com/google/elephant-goldfish-model.git"],
+            ["git", "-C", str(fixture), "config", "user.name", "Agent package validator"],
+            ["git", "-C", str(fixture), "config", "user.email", "validator@example.invalid"],
+            ["git", "-C", str(fixture), "add", "agents"],
+            ["git", "-C", str(fixture), "commit", "-m", "fixture"],
+        ]
+        for command in commands:
+            result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+            if result.returncode != 0:
+                raise ValueError(f"EGM shell fixture setup failed ({result.returncode}):\n{result.stdout}")
+        fixture_commit = subprocess.run(
+            ["git", "-C", str(fixture), "rev-parse", "HEAD"],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if fixture_commit.returncode != 0:
+            raise ValueError(f"cannot read EGM shell fixture commit:\n{fixture_commit.stdout}")
+        fixture_commit_sha = fixture_commit.stdout.strip()
+
+        success_origin = "https://github.com/google/elephant-goldfish-model.git"
+        read_marker = "PERSONA_READ_REACHED"
+        for profile, persona in EGM_WRAPPERS.items():
+            data = tomllib.loads((AGENTS_DIR / f"{profile}.toml").read_text(encoding="utf-8"))
+            match = re.search(r"```sh\n(.*?)\n```", data["developer_instructions"], re.DOTALL)
+            if not match:
+                raise ValueError(f"{profile} has no executable identity-check shell block")
+            script = match.group(1).replace(EGM_PIN, fixture_commit_sha)
+            script = f"plugin_root={shlex.quote(str(fixture))}\n" + script
+            persona_path = fixture / "agents" / f"{persona}.md"
+            for shell_name, command, syntax_command in shells:
+                syntax = subprocess.run(
+                    [*syntax_command, script], text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if syntax.returncode != 0:
+                    raise ValueError(f"{profile} shell syntax failed in {shell_name} ({syntax.returncode}):\n{syntax.stdout}")
+
+                # Do not pass -e to the parent shell. These assertions prove
+                # that the snippet's own set -eu stops later checks and reads.
+                positive = subprocess.run(
+                    [*command, script + f"\nprintf '%s\\n' {shlex.quote(read_marker)}\n"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if positive.returncode != 0 or read_marker not in positive.stdout:
+                    raise ValueError(f"{profile} positive control failed in {shell_name}:\n{positive.stdout}")
+
+                # Wrong origin, but valid HEAD/persona: the initial test must
+                # abort instead of allowing later successful tests to mask it.
+                changed = subprocess.run(
+                    ["git", "-C", str(fixture), "remote", "set-url", "origin", "https://example.invalid/wrong.git"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if changed.returncode != 0:
+                    raise ValueError(f"cannot set invalid fixture origin:\n{changed.stdout}")
+                invalid_origin = subprocess.run(
+                    [*command, script + f"\nprintf '%s\\n' {shlex.quote(read_marker)}\n"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                restored = subprocess.run(
+                    ["git", "-C", str(fixture), "remote", "set-url", "origin", success_origin],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if restored.returncode != 0:
+                    raise ValueError(f"cannot restore fixture origin:\n{restored.stdout}")
+                if invalid_origin.returncode == 0 or read_marker in invalid_origin.stdout:
+                    raise ValueError(f"{profile} continued after invalid origin in {shell_name}:\n{invalid_origin.stdout}")
+
+                # Wrong expected HEAD with correct origin and persona.
+                wrong_sha = "0" * 40
+                invalid_head_script = script.replace(f"expected_commit={fixture_commit_sha}", f"expected_commit={wrong_sha}")
+                invalid_head = subprocess.run(
+                    [*command, invalid_head_script + f"\nprintf '%s\\n' {shlex.quote(read_marker)}\n"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if invalid_head.returncode == 0 or read_marker in invalid_head.stdout:
+                    raise ValueError(f"{profile} continued after invalid HEAD in {shell_name}:\n{invalid_head.stdout}")
+
+                # Correct origin/HEAD, but tampered persona file; `diff` must
+                # abort and prevent the persona-read marker.
+                original = persona_path.read_text(encoding="utf-8")
+                persona_path.write_text(original + "tampered\n", encoding="utf-8")
+                invalid_persona = subprocess.run(
+                    [*command, script + f"\nprintf '%s\\n' {shlex.quote(read_marker)}\n"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                persona_path.write_text(original, encoding="utf-8")
+                if invalid_persona.returncode == 0 or read_marker in invalid_persona.stdout:
+                    raise ValueError(f"{profile} continued after modified persona in {shell_name}:\n{invalid_persona.stdout}")
+
+            # Reproduce the old syntax in zsh. It must fail so the test guards
+            # against accidentally restoring the unbraced form.
+            if zsh_path:
+                old_form = (
+                    f'expected_commit={fixture_commit_sha}; '
+                    f'git -C {shlex.quote(str(fixture))} cat-file -e "$expected_commit:agents/{persona}.md"'
+                )
+                result = subprocess.run(
+                    [zsh_path, "-f", "-c", old_form], text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if result.returncode == 0:
+                    raise ValueError(f"{profile}: zsh unexpectedly accepted the old unbraced form")
+
+    shell_names = ", ".join(name for name, _, _ in shells)
+    if not zsh_path:
+        shell_names += "; zsh unavailable, skipped"
+    print(
+        f"EGM shell checks: PASS ({len(EGM_WRAPPERS)} wrappers × {shell_names}; syntax, positive, "
+        "invalid origin/HEAD, modified persona stop before read marker; no outer -e)"
+    )
 
 
 def validate_readme_manifest(names: set[str]) -> None:
@@ -384,6 +600,8 @@ def main() -> int:
         return 2
     try:
         names = validate_profiles()
+        validate_egm_wrappers()
+        validate_egm_shell_commands()
         validate_readme_manifest(names)
         validate_local_markdown_links()
         validate_installer_isolation(names)
