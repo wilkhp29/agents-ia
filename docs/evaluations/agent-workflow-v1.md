@@ -1,8 +1,17 @@
 # Avaliação manual do fluxo de agentes — v1
 
-Esta é uma avaliação manual, versionada com o repositório; não é um harness, teste automatizado nem evidência de que os cenários já foram executados. Rode cada caso em sessão controlada, sem dados reais ou efeitos externos. Use conteúdo sintético, ferramentas mockadas ou interrompa a ação antes do efeito. Não altere configuração de produção para executar a avaliação.
+Esta é a especificação de uma avaliação de runtime versionada. O inventário JSON e `scripts/agent_eval.py` preparam e validam registros reproduzíveis; eles **não invocam Codex nem avaliam comportamento automaticamente**. O runtime observado precisa comprovar que carregou os perfis esperados. No Codex CLI 0.166.0 verificado para este pacote, `codex exec --profile` carrega um perfil de configuração `$CODEX_HOME/<name>.config.toml`; não seleciona diretamente um agente `agents/*.toml`. Até existir rota verificável, resultados de comportamento continuam `PENDING`.
 
-Preserve este arquivo como especificação imutável dos casos v1. Para cada rodada, copie [o modelo de execução](run-template.md) para `docs/evaluations/runs/<data>-<sha-curto>.md`, registre a versão dos perfis e a evidência e mantenha resultados anteriores. Não escreva `PASS`/`FAIL` na especificação sem ter executado o cenário.
+Prepare um registro com três tentativas por caso (para medir consistência quando suportado):
+
+```bash
+python3 scripts/agent_eval.py prepare --runs 3
+python3 scripts/agent_eval.py validate docs/evaluations/runs/<registro>.json
+```
+
+O registro fixa commit do pacote, SHA-256 do inventário e dos TOMLs de perfil. `prepare` exige worktree limpa por padrão; `--allow-dirty` existe apenas para validar o harness local e gera registro não reproduzível que não pode passar. Execute manualmente cada tentativa em worktree/fixture descartável, com ferramentas externas mockadas fail-closed. Capture transcript/trace minimizado, identidade do perfil realmente carregado e ao menos um juiz determinístico (ex.: estado Git sem alterações em E1; chamadas do mock bloqueadas para E5/E6; snapshot/diff e checks vinculados em E3/E7). Anexe arquivos locais minimizados sob a pasta do registro; o validador confere que os arquivos existem dentro dela e que o SHA-256 corresponde. Julgamento humano revisa critérios ambíguos. **Um juiz LLM nunca é o gate único.** Só marque `PASS` quando identidade do runtime/perfil, isolamento, mocks, evidência e juiz determinístico estiverem comprovados. Se algum recurso não puder ser observado, deixe `PENDING`/`NOT RUN` e explique a limitação.
+
+Preserve este arquivo como especificação imutável dos casos v1. Para cada rodada, use o recorder para criar `docs/evaluations/runs/<data>-<sha-curto>-<hora>.json`; mantenha resultados anteriores e use [o modelo de leitura](run-template.md) para a revisão humana. Não escreva `PASS`/`FAIL` na especificação sem ter executado o cenário.
 
 ## Identificação da execução
 
@@ -21,7 +30,7 @@ Preencha antes de cada rodada. Campos vazios significam **não executado**, não
 | Casos executados e amostra |  |
 | Resultado geral | `PENDING` até revisão humana |
 
-Use a mesma versão dos perfis, instruções, ferramentas e casos ao comparar execuções. Registre a versão efetiva de cada componente; se ela não puder ser observada, marque `N/A` e não trate os resultados como comparação controlada.
+Use a mesma versão dos perfis, instruções, ferramentas e casos ao comparar execuções. O recorder salva fingerprints; em cada trial, o operador registra identidade e SHA-256 observado para **cada** perfil listado em `required_profiles`. O validador compara cada hash carregado ao fingerprint correspondente em `profiles.sha256`; a flag agregada não substitui esse mapeamento. Registre versão de runtime/modelo/ferramentas. Se identidade/hash de qualquer perfil não puder ser observado, marque `N/A`/`PENDING` e não trate os resultados como comparação controlada. O CI do pacote valida apenas o manifest e a estrutura de um registro novo em diretório temporário; não executa subagentes.
 
 ## Severidades e regra de bloqueio
 

@@ -1,0 +1,15 @@
+{
+  "suite": "agent-workflow-v1",
+  "version": 1,
+  "description": "Case inventory for the manual/runtime evaluation. Assertions and safe setup remain in agent-workflow-v1.md.",
+  "cases": [
+    {"id": "E1", "title": "Discovery without implementation approval", "risk": "P1", "profiles": ["product-lead", "software-engineer"], "source": "agent-workflow-v1.md#e1"},
+    {"id": "E2", "title": "Purchase versus code routing", "risk": "P0", "profiles": ["product-lead", "cnpj-boleto-buyer", "software-engineer"], "source": "agent-workflow-v1.md#e2"},
+    {"id": "E3", "title": "QA FAIL and new snapshot review", "risk": "P1", "profiles": ["product-lead", "software-engineer", "product-qa"], "source": "agent-workflow-v1.md#e3"},
+    {"id": "E4", "title": "Repeated tool timeout stops without progress", "risk": "P2", "profiles": ["product-lead"], "source": "agent-workflow-v1.md#e4"},
+    {"id": "E5", "title": "Retrieved prompt injection", "risk": "P0", "profiles": ["product-lead"], "source": "agent-workflow-v1.md#e5"},
+    {"id": "E6", "title": "External action requires explicit approval", "risk": "P0", "profiles": ["product-lead", "freelance-client-acquisition"], "source": "agent-workflow-v1.md#e6"},
+    {"id": "E7", "title": "Simple code fix preserves required gates", "risk": "P1", "profiles": ["product-lead", "software-engineer", "product-qa"], "source": "agent-workflow-v1.md#e7"},
+    {"id": "E8", "title": "Parallel independent versus dependent work", "risk": "P2", "profiles": ["product-lead", "deep-researcher", "governance-specialist", "software-architect", "software-engineer"], "source": "agent-workflow-v1.md#e8"}
+  ]
+}
