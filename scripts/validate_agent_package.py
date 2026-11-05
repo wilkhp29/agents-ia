@@ -79,6 +79,7 @@ def validate_egm_wrappers() -> None:
             "não criam sandbox",
             "inclusive o caminho derivado do skill ativo",
             "expected_origin=https://github.com/google/elephant-goldfish-model.git",
+            "set -eu\nexpected_commit=",
             'git -C "$plugin_root" remote get-url origin',
             'git -C "$plugin_root" rev-parse --verify HEAD',
             'test "$actual_origin" = "$expected_origin"',
@@ -130,6 +131,13 @@ def validate_egm_wrappers() -> None:
             pass
         else:
             raise ValueError(f"{path.name}: validator accepted zsh-sensitive unbraced commit interpolation")
+        fail_fast_removed = instructions.replace("set -eu\nexpected_commit=", "expected_commit=", 1)
+        try:
+            validate_instruction_text(profile, fail_fast_removed)
+        except ValueError:
+            pass
+        else:
+            raise ValueError(f"{path.name}: validator accepted an identity-check block without fail-fast")
     for path in AGENTS_DIR.glob("egm-*.toml"):
         text = path.read_text(encoding="utf-8")
         if re.search(r"(?<![A-Za-z0-9])/(?:Users|home)/", text):
@@ -138,11 +146,13 @@ def validate_egm_wrappers() -> None:
 
 
 def validate_egm_shell_commands() -> None:
-    """Run each wrapper's identity checks in bash and zsh against a Git fixture."""
-    shells: list[tuple[str, list[str]]] = [("bash", ["bash", "-eu", "-c"])]
+    """Run checks and negative cases in bash/zsh without outer fail-fast flags."""
+    shells: list[tuple[str, list[str], list[str]]] = [
+        ("bash", ["bash", "--noprofile", "--norc", "-u", "-c"], ["bash", "--noprofile", "--norc", "-n", "-c"])
+    ]
     zsh_path = shutil.which("zsh")
     if zsh_path:
-        shells.append(("zsh", [zsh_path, "-f", "-e", "-c"]))
+        shells.append(("zsh", [zsh_path, "-f", "-u", "-c"], [zsh_path, "-f", "-n", "-c"]))
 
     with tempfile.TemporaryDirectory(prefix="egm-shell-fixture-") as temp:
         fixture = Path(temp) / "egm bundle with spaces"
@@ -169,6 +179,8 @@ def validate_egm_shell_commands() -> None:
             raise ValueError(f"cannot read EGM shell fixture commit:\n{fixture_commit.stdout}")
         fixture_commit_sha = fixture_commit.stdout.strip()
 
+        success_origin = "https://github.com/google/elephant-goldfish-model.git"
+        read_marker = "PERSONA_READ_REACHED"
         for profile, persona in EGM_WRAPPERS.items():
             data = tomllib.loads((AGENTS_DIR / f"{profile}.toml").read_text(encoding="utf-8"))
             match = re.search(r"```sh\n(.*?)\n```", data["developer_instructions"], re.DOTALL)
@@ -176,23 +188,66 @@ def validate_egm_shell_commands() -> None:
                 raise ValueError(f"{profile} has no executable identity-check shell block")
             script = match.group(1).replace(EGM_PIN, fixture_commit_sha)
             script = f"plugin_root={shlex.quote(str(fixture))}\n" + script
-            for shell_name, command in shells:
-                syntax_command = (
-                    ["bash", "--noprofile", "--norc", "-n", "-c"]
-                    if shell_name == "bash"
-                    else [zsh_path, "-f", "-n", "-c"]
-                )
+            persona_path = fixture / "agents" / f"{persona}.md"
+            for shell_name, command, syntax_command in shells:
                 syntax = subprocess.run(
                     [*syntax_command, script], text=True,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
                 )
                 if syntax.returncode != 0:
                     raise ValueError(f"{profile} shell syntax failed in {shell_name} ({syntax.returncode}):\n{syntax.stdout}")
-                result = subprocess.run(
-                    [*command, script], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+
+                # Do not pass -e to the parent shell. These assertions prove
+                # that the snippet's own set -eu stops later checks and reads.
+                positive = subprocess.run(
+                    [*command, script + f"\nprintf '%s\\n' {shlex.quote(read_marker)}\n"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
                 )
-                if result.returncode != 0:
-                    raise ValueError(f"{profile} identity-check failed in {shell_name} ({result.returncode}):\n{result.stdout}")
+                if positive.returncode != 0 or read_marker not in positive.stdout:
+                    raise ValueError(f"{profile} positive control failed in {shell_name}:\n{positive.stdout}")
+
+                # Wrong origin, but valid HEAD/persona: the initial test must
+                # abort instead of allowing later successful tests to mask it.
+                changed = subprocess.run(
+                    ["git", "-C", str(fixture), "remote", "set-url", "origin", "https://example.invalid/wrong.git"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if changed.returncode != 0:
+                    raise ValueError(f"cannot set invalid fixture origin:\n{changed.stdout}")
+                invalid_origin = subprocess.run(
+                    [*command, script + f"\nprintf '%s\\n' {shlex.quote(read_marker)}\n"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                restored = subprocess.run(
+                    ["git", "-C", str(fixture), "remote", "set-url", "origin", success_origin],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if restored.returncode != 0:
+                    raise ValueError(f"cannot restore fixture origin:\n{restored.stdout}")
+                if invalid_origin.returncode == 0 or read_marker in invalid_origin.stdout:
+                    raise ValueError(f"{profile} continued after invalid origin in {shell_name}:\n{invalid_origin.stdout}")
+
+                # Wrong expected HEAD with correct origin and persona.
+                wrong_sha = "0" * 40
+                invalid_head_script = script.replace(f"expected_commit={fixture_commit_sha}", f"expected_commit={wrong_sha}")
+                invalid_head = subprocess.run(
+                    [*command, invalid_head_script + f"\nprintf '%s\\n' {shlex.quote(read_marker)}\n"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if invalid_head.returncode == 0 or read_marker in invalid_head.stdout:
+                    raise ValueError(f"{profile} continued after invalid HEAD in {shell_name}:\n{invalid_head.stdout}")
+
+                # Correct origin/HEAD, but tampered persona file; `diff` must
+                # abort and prevent the persona-read marker.
+                original = persona_path.read_text(encoding="utf-8")
+                persona_path.write_text(original + "tampered\n", encoding="utf-8")
+                invalid_persona = subprocess.run(
+                    [*command, script + f"\nprintf '%s\\n' {shlex.quote(read_marker)}\n"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                persona_path.write_text(original, encoding="utf-8")
+                if invalid_persona.returncode == 0 or read_marker in invalid_persona.stdout:
+                    raise ValueError(f"{profile} continued after modified persona in {shell_name}:\n{invalid_persona.stdout}")
 
             # Reproduce the old syntax in zsh. It must fail so the test guards
             # against accidentally restoring the unbraced form.
@@ -208,10 +263,13 @@ def validate_egm_shell_commands() -> None:
                 if result.returncode == 0:
                     raise ValueError(f"{profile}: zsh unexpectedly accepted the old unbraced form")
 
-    shell_names = ", ".join(name for name, _ in shells)
+    shell_names = ", ".join(name for name, _, _ in shells)
     if not zsh_path:
         shell_names += "; zsh unavailable, skipped"
-    print(f"EGM shell syntax/identity checks: PASS ({len(EGM_WRAPPERS)} wrappers × {shell_names}; fixture; zsh rejects old unbraced form)")
+    print(
+        f"EGM shell checks: PASS ({len(EGM_WRAPPERS)} wrappers × {shell_names}; syntax, positive, "
+        "invalid origin/HEAD, modified persona stop before read marker; no outer -e)"
+    )
 
 
 def validate_readme_manifest(names: set[str]) -> None:
