@@ -21,6 +21,16 @@ README = ROOT / "README.md"
 INSTALLER = ROOT / "install-agents.sh"
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)")
 AGENT_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|", re.MULTILINE)
+EGM_PIN = "0dfb5bf3eebd551d1e805c3ab16cbaa9b1c2c42a"
+EGM_WRAPPERS = {
+    "egm-comprehension": "comprehension",
+    "egm-zoom-out": "zoom_out",
+    "egm-design": "design_critic",
+    "egm-structural": "structural",
+    "egm-style": "style",
+    "egm-implementation-readiness": "implementation_readiness",
+    "egm-codebase-details": "codebase_details",
+}
 
 
 def heading_section(text: str, heading: str) -> str:
@@ -54,6 +64,30 @@ def validate_profiles() -> set[str]:
         names.add(name)
     print(f"TOML profiles: PASS ({len(paths)})")
     return names
+
+
+def validate_egm_wrappers() -> None:
+    for profile, persona in EGM_WRAPPERS.items():
+        path = AGENTS_DIR / f"{profile}.toml"
+        if not path.is_file():
+            raise ValueError(f"missing named EGM wrapper: {path.name}")
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+        instructions = data["developer_instructions"]
+        required = (
+            f"agents/{persona}.md",
+            EGM_PIN,
+            "BLOCKED: persona EGM não carregada",
+            "AGENTS.md",
+            "não criam sandbox",
+        )
+        missing = [item for item in required if item not in instructions]
+        if missing:
+            raise ValueError(f"{path.name} lacks required EGM identity/isolation controls: {missing}")
+    for path in AGENTS_DIR.glob("egm-*.toml"):
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"(?<![A-Za-z0-9])/(?:Users|home)/", text):
+            raise ValueError(f"{path.name} contains a machine-specific absolute path")
+    print(f"Named EGM wrappers: PASS ({len(EGM_WRAPPERS)} persona mappings, pin and isolation caveats)")
 
 
 def validate_readme_manifest(names: set[str]) -> None:
@@ -384,6 +418,7 @@ def main() -> int:
         return 2
     try:
         names = validate_profiles()
+        validate_egm_wrappers()
         validate_readme_manifest(names)
         validate_local_markdown_links()
         validate_installer_isolation(names)
