@@ -21,14 +21,14 @@ Para feature de porte médio/grande ou com decisão de produto, experiência ou 
 
 EGM não substitui aprovação humana, teste, revisão de código ou `product-qa`. Consolide o resultado na mesma especificação/plano e faça uma única pergunta de autorização de implementação, sem criar um segundo gate humano para o mesmo escopo. Escolha quais observações incorporar e registre as rejeitadas com motivo quando forem relevantes.
 
-O upstream lista Codex como harness compatível e indica instalar o plugin completo:
+O plugin `egm@egm` foi instalado e verificado no Codex global na versão `0.1.0`, pelo marketplace `google/elephant-goldfish-model`, no commit upstream `0dfb5bf3eebd551d1e805c3ab16cbaa9b1c2c42a`. Para reproduzir em outro computador, instale o marketplace fixado nesse commit e o plugin completo:
 
 ```bash
-codex plugin marketplace add google/elephant-goldfish-model
+codex plugin marketplace add google/elephant-goldfish-model --ref 0dfb5bf3eebd551d1e805c3ab16cbaa9b1c2c42a
 codex plugin add egm@egm
 ```
 
-Após instalação, inicie uma nova sessão e confirme que as skills aparecem. Estes comandos seguem o marketplace upstream e não fixam uma revisão; confira origem, conteúdo, versão e compatibilidade antes de instalar em cada computador. **Este pacote não instala o plugin no `CODEX_HOME` do usuário.**
+Após a instalação, inicie uma sessão nova do Codex e confirme que as skills EGM estão disponíveis. O repositório de agentes não embala, copia nem instala essa dependência no `CODEX_HOME`; a instalação do plugin é separada. Para atualizar o pin, revise o diff upstream, confirme versão e compatibilidade com Codex, teste instalação e skills numa sessão nova e atualize este registro somente após essa revisão.
 
 No Codex, o repositório upstream documenta dispatch nativo de subagentes, sem personas nomeadas do plugin, com fallback para subagente geral que lê a persona do Goldfish. Contexto novo isola turnos da conversa conforme o host, mas não prova que arquivos `AGENTS.md` locais/globais foram omitidos. Informe aos revisores os critérios e fontes que devem desafiar; não descreva a revisão como cega ou totalmente independente sem evidência do host. Verifique o guia upstream de [harnesses e limitações](https://github.com/google/elephant-goldfish-model/blob/main/docs/harnesses.md) antes de atualizar a integração.
 
