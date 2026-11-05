@@ -12,12 +12,10 @@ expected_commit=0dfb5bf3eebd551d1e805c3ab16cbaa9b1c2c42a
 expected_origin=https://github.com/google/elephant-goldfish-model.git
 actual_origin="$(git -C "$plugin_root" remote get-url origin)"
 actual_commit="$(git -C "$plugin_root" rev-parse --verify HEAD)"
-printf 'origin=%s
-commit=%s
-' "$actual_origin" "$actual_commit"
+printf 'origin=%s\\ncommit=%s\\n' "$actual_origin" "$actual_commit"
 test "$actual_origin" = "$expected_origin"
 test "$actual_commit" = "$expected_commit"
-git -C "$plugin_root" cat-file -e "$expected_commit:agents/codebase_details.md"
+git -C "$plugin_root" cat-file -e "${expected_commit}:agents/codebase_details.md"
 git -C "$plugin_root" diff --quiet "$expected_commit" -- "agents/codebase_details.md"
 ```
 
