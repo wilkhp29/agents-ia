@@ -7,6 +7,8 @@ import hashlib
 import json
 import os
 import re
+import shlex
+import shutil
 import stat
 import subprocess
 import sys
@@ -81,7 +83,7 @@ def validate_egm_wrappers() -> None:
             'git -C "$plugin_root" rev-parse --verify HEAD',
             'test "$actual_origin" = "$expected_origin"',
             'test "$actual_commit" = "$expected_commit"',
-            f'git -C "$plugin_root" cat-file -e "$expected_commit:agents/{persona}.md"',
+            f'git -C "$plugin_root" cat-file -e "${{expected_commit}}:agents/{persona}.md"',
             f'git -C "$plugin_root" diff --quiet "$expected_commit" -- "agents/{persona}.md"',
         )
         missing = [item for item in required if item not in instructions]
@@ -93,6 +95,8 @@ def validate_egm_wrappers() -> None:
             raise ValueError(f"{profile} reads the persona before verifying the selected bundle pin")
         if "Se o caminho ativo existir mas não passar na verificação abaixo, bloqueie" not in instructions:
             raise ValueError(f"{profile} may silently fall back when the active skill path fails pin verification")
+        if f'"$expected_commit:agents/{persona}.md"' in instructions:
+            raise ValueError(f"{profile} uses zsh-sensitive unbraced commit interpolation before the path colon")
 
     for profile in EGM_WRAPPERS:
         persona = EGM_WRAPPERS[profile]
@@ -114,11 +118,100 @@ def validate_egm_wrappers() -> None:
             pass
         else:
             raise ValueError(f"{path.name}: validator accepted active-skill persona use before pin verification")
+        # Regression: zsh treats the colon after an unbraced parameter as a
+        # parameter modifier. The exact invalid form must be rejected.
+        unbraced = instructions.replace(
+            f'"${{expected_commit}}:agents/{persona}.md"',
+            f'"$expected_commit:agents/{persona}.md"',
+        )
+        try:
+            validate_instruction_text(profile, unbraced)
+        except ValueError:
+            pass
+        else:
+            raise ValueError(f"{path.name}: validator accepted zsh-sensitive unbraced commit interpolation")
     for path in AGENTS_DIR.glob("egm-*.toml"):
         text = path.read_text(encoding="utf-8")
         if re.search(r"(?<![A-Za-z0-9])/(?:Users|home)/", text):
             raise ValueError(f"{path.name} contains a machine-specific absolute path")
     print(f"Named EGM wrappers: PASS ({len(EGM_WRAPPERS)} persona mappings, pin and isolation caveats)")
+
+
+def validate_egm_shell_commands() -> None:
+    """Run each wrapper's identity checks in bash and zsh against a Git fixture."""
+    shells: list[tuple[str, list[str]]] = [("bash", ["bash", "-eu", "-c"])]
+    zsh_path = shutil.which("zsh")
+    if zsh_path:
+        shells.append(("zsh", [zsh_path, "-f", "-e", "-c"]))
+
+    with tempfile.TemporaryDirectory(prefix="egm-shell-fixture-") as temp:
+        fixture = Path(temp) / "egm bundle with spaces"
+        (fixture / "agents").mkdir(parents=True)
+        for persona in EGM_WRAPPERS.values():
+            (fixture / "agents" / f"{persona}.md").write_text(f"# {persona}\n", encoding="utf-8")
+        commands = [
+            ["git", "init", str(fixture)],
+            ["git", "-C", str(fixture), "remote", "add", "origin", "https://github.com/google/elephant-goldfish-model.git"],
+            ["git", "-C", str(fixture), "config", "user.name", "Agent package validator"],
+            ["git", "-C", str(fixture), "config", "user.email", "validator@example.invalid"],
+            ["git", "-C", str(fixture), "add", "agents"],
+            ["git", "-C", str(fixture), "commit", "-m", "fixture"],
+        ]
+        for command in commands:
+            result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+            if result.returncode != 0:
+                raise ValueError(f"EGM shell fixture setup failed ({result.returncode}):\n{result.stdout}")
+        fixture_commit = subprocess.run(
+            ["git", "-C", str(fixture), "rev-parse", "HEAD"],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if fixture_commit.returncode != 0:
+            raise ValueError(f"cannot read EGM shell fixture commit:\n{fixture_commit.stdout}")
+        fixture_commit_sha = fixture_commit.stdout.strip()
+
+        for profile, persona in EGM_WRAPPERS.items():
+            data = tomllib.loads((AGENTS_DIR / f"{profile}.toml").read_text(encoding="utf-8"))
+            match = re.search(r"```sh\n(.*?)\n```", data["developer_instructions"], re.DOTALL)
+            if not match:
+                raise ValueError(f"{profile} has no executable identity-check shell block")
+            script = match.group(1).replace(EGM_PIN, fixture_commit_sha)
+            script = f"plugin_root={shlex.quote(str(fixture))}\n" + script
+            for shell_name, command in shells:
+                syntax_command = (
+                    ["bash", "--noprofile", "--norc", "-n", "-c"]
+                    if shell_name == "bash"
+                    else [zsh_path, "-f", "-n", "-c"]
+                )
+                syntax = subprocess.run(
+                    [*syntax_command, script], text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if syntax.returncode != 0:
+                    raise ValueError(f"{profile} shell syntax failed in {shell_name} ({syntax.returncode}):\n{syntax.stdout}")
+                result = subprocess.run(
+                    [*command, script], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if result.returncode != 0:
+                    raise ValueError(f"{profile} identity-check failed in {shell_name} ({result.returncode}):\n{result.stdout}")
+
+            # Reproduce the old syntax in zsh. It must fail so the test guards
+            # against accidentally restoring the unbraced form.
+            if zsh_path:
+                old_form = (
+                    f'expected_commit={fixture_commit_sha}; '
+                    f'git -C {shlex.quote(str(fixture))} cat-file -e "$expected_commit:agents/{persona}.md"'
+                )
+                result = subprocess.run(
+                    [zsh_path, "-f", "-c", old_form], text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+                )
+                if result.returncode == 0:
+                    raise ValueError(f"{profile}: zsh unexpectedly accepted the old unbraced form")
+
+    shell_names = ", ".join(name for name, _ in shells)
+    if not zsh_path:
+        shell_names += "; zsh unavailable, skipped"
+    print(f"EGM shell syntax/identity checks: PASS ({len(EGM_WRAPPERS)} wrappers × {shell_names}; fixture; zsh rejects old unbraced form)")
 
 
 def validate_readme_manifest(names: set[str]) -> None:
@@ -450,6 +543,7 @@ def main() -> int:
     try:
         names = validate_profiles()
         validate_egm_wrappers()
+        validate_egm_shell_commands()
         validate_readme_manifest(names)
         validate_local_markdown_links()
         validate_installer_isolation(names)
