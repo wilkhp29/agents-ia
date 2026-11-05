@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+import json
 from pathlib import Path
 
 
@@ -170,6 +171,94 @@ def validate_installer_isolation(names: set[str]) -> None:
     print("Installer isolation/dry-run/idempotence/backup-restore: PASS (temporary CODEX_HOME)")
 
 
+def validate_agent_eval_harness() -> None:
+    with tempfile.TemporaryDirectory(prefix="agent-eval-validation-") as temp:
+        record = Path(temp) / "run.json"
+        prepared = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "prepare", "--runs", "3",
+             "--profiles", str(AGENTS_DIR), "--output", str(record), "--allow-dirty"],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if prepared.returncode != 0:
+            raise ValueError(f"agent eval prepare failed ({prepared.returncode}):\n{prepared.stdout}")
+        if "Runtime execution: NOT RUN" not in prepared.stdout:
+            raise ValueError("agent eval preparation must state that it did not run agent profiles")
+        data = json.loads(record.read_text(encoding="utf-8"))
+        if data.get("summary", {}).get("status") != "PENDING":
+            raise ValueError("new run record must start PENDING")
+        if data.get("selected_case_ids") != [f"E{i}" for i in range(1, 9)]:
+            raise ValueError("default eval run must cover E1–E8")
+        if any(trial["status"] != "NOT RUN" for case in data["cases"] for trial in case["trials"]):
+            raise ValueError("prepared eval trials must be NOT RUN")
+        for case in data["cases"]:
+            expected_profiles = set(case["required_profiles"])
+            for trial in case["trials"]:
+                observed = trial.get("observed_profiles")
+                if not isinstance(observed, dict) or set(observed) != expected_profiles:
+                    raise ValueError(f"{case['id']}: prepared trial must include each required profile")
+                if any(item.get("identity_verified") is not False or item.get("sha256") is not None for item in observed.values()):
+                    raise ValueError(f"{case['id']}: prepared profiles must start unverified with no observed hash")
+        validated = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "validate", str(record)],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if validated.returncode != 0:
+            raise ValueError(f"agent eval record validation failed ({validated.returncode}):\n{validated.stdout}")
+
+        invalid_pass = dict(data)
+        invalid_pass["summary"] = {**data["summary"], "status": "PASS"}
+        first_case = dict(data["cases"][0])
+        first_trial = dict(first_case["trials"][0])
+        first_trial["status"] = "PASS"
+        first_trial["profile_load_identity_verified"] = True
+        first_case["trials"] = [first_trial, *first_case["trials"][1:]]
+        invalid_pass["cases"] = [first_case, *data["cases"][1:]]
+        invalid_record = Path(temp) / "invalid-pass.json"
+        invalid_record.write_text(json.dumps(invalid_pass), encoding="utf-8")
+        rejected = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "validate", str(invalid_record)],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if rejected.returncode == 0 or "aggregate profile identity flag must match per-profile observations" not in rejected.stdout:
+            raise ValueError("agent eval validator accepted a PASS with only an aggregate profile identity flag")
+
+        mismatched_hash = json.loads(json.dumps(data))
+        mismatched_case = mismatched_hash["cases"][0]
+        mismatched_trial = mismatched_case["trials"][0]
+        mismatched_trial["status"] = "PASS"
+        mismatched_trial["profile_load_identity_verified"] = True
+        for profile_name in mismatched_case["required_profiles"]:
+            mismatched_trial["observed_profiles"][profile_name] = {
+                "identity_verified": True,
+                "sha256": mismatched_hash["profiles"]["sha256"][profile_name],
+            }
+        mismatched_trial["observed_profiles"][mismatched_case["required_profiles"][0]]["sha256"] = "f" * 64
+        mismatched_record = Path(temp) / "mismatched-hash.json"
+        mismatched_record.write_text(json.dumps(mismatched_hash), encoding="utf-8")
+        hash_rejected = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "validate", str(mismatched_record)],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if hash_rejected.returncode == 0 or "loaded fingerprint does not match profiles.sha256" not in hash_rejected.stdout:
+            raise ValueError("agent eval validator accepted a loaded profile hash that differs from the manifest")
+
+        subset = Path(temp) / "subset.json"
+        selected = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "prepare", "--case", "E5",
+             "--runs", "1", "--profiles", str(AGENTS_DIR), "--output", str(subset), "--allow-dirty"],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if selected.returncode != 0:
+            raise ValueError(f"agent eval subset prepare failed ({selected.returncode}):\n{selected.stdout}")
+        subset_check = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "validate", str(subset)],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if subset_check.returncode != 0:
+            raise ValueError(f"agent eval subset validation failed ({subset_check.returncode}):\n{subset_check.stdout}")
+    print("Agent eval harness: PASS (8 cases × 3 pending trials; temp record; no runtime invocation)")
+
+
 def main() -> int:
     if sys.version_info < (3, 11):
         print("Python 3.11+ is required for stdlib tomllib", file=sys.stderr)
@@ -179,6 +268,7 @@ def main() -> int:
         validate_readme_manifest(names)
         validate_local_markdown_links()
         validate_installer_isolation(names)
+        validate_agent_eval_harness()
     except (OSError, ValueError, tomllib.TOMLDecodeError) as error:
         print(f"Agent package validation: FAIL\n{error}", file=sys.stderr)
         return 1

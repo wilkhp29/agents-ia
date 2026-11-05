@@ -43,7 +43,7 @@ Atualize o repositório via Git, revise as mudanças e execute novamente o insta
 
 Antes de copiar perfis globalmente, execute `python3 scripts/validate_agent_package.py`. A validação usa somente a biblioteca padrão do Python 3.11+ para ler os TOMLs, comparar as tabelas do README e conferir links locais; também simula `--dry-run`, instalação, idempotência, backup e restauração em um diretório temporário `CODEX_HOME`. Ela não escreve em `~/.codex`.
 
-O workflow [Agent package validation](.github/workflows/agent-package-validation.yml) executa essas verificações em PRs para `develop`/`main` e em atualizações dessas branches. As actions de terceiros estão fixadas por SHA revisado, e o token de workflow tem somente `contents: read`. Esse CI valida o pacote e o instalador; não testa o comportamento de cada agente, a segurança do runtime Codex, configurações remotas ou qualquer produto consumidor.
+O workflow [Agent package validation](.github/workflows/agent-package-validation.yml) executa essas verificações em PRs para `develop`/`main` e em atualizações dessas branches. Também valida o case manifest e prepara/valida um registro de avaliação pendente em diretório temporário. As actions de terceiros estão fixadas por SHA revisado, e o token de workflow tem somente `contents: read`. Esse CI **não** invoca agentes, não testa o comportamento do runtime Codex, configurações remotas ou qualquer produto consumidor.
 
 Identifique uma versão do pacote pelo SHA Git revisado ou por uma tag de release criada conforme autorização do repositório. Para instalação de produção no Codex, primeiro valide o checkout/SHA e rode a validação; depois use `--dry-run`, revise conflitos e execute `./install-agents.sh --replace` somente para os perfis aprovados. Registre o SHA instalado, quais perfis foram copiados ou substituídos e o diretório de backup informado. Para rollback, remova somente os perfis adicionados nessa instalação e restaure do backup somente os perfis substituídos; deixe intactos os perfis que já tinham conteúdo idêntico. Confirme nomes/conteúdo e reinicie o Codex. O smoke de CI testa esse procedimento apenas em diretório descartável.
 
@@ -188,6 +188,12 @@ A CLI documenta instalação por caminho direto de uma skill, seleção de agent
 
 Para instalações sem pin, confira atualizações com `npx skills check` e atualize conscientemente com `npx skills update`; liste skills globais com `npx skills ls --global --agent codex`. Plugins Codex podem ser atualizados com `codex plugin marketplace upgrade`; verifique as fontes cadastradas com `codex plugin marketplace list`. Não instale todas as skills por padrão. Esses recursos são opcionais e não alteram contratos visuais ou permissões aprovados no projeto.
 
+## Especificação assistida pelo Elephant Goldfish Model
+
+Para features médias/grandes com decisões de produto, UX ou arquitetura, `product-lead` pode usar EGM para brainstorm, draft e revisão Goldfish antes de pedir a aprovação de implementação. Os achados são consolidados no plano aprovado já existente; não se pede uma aprovação humana duplicada. Correções pequenas podem seguir o fluxo curto. EGM não substitui testes, revisão de código ou `product-qa`.
+
+O [guia detalhado](docs/delivery-playbook.md#egm-opcional-na-especificação) documenta seleção, artefatos, limitações do contexto do Codex e os passos de instalação do plugin completo. O pacote de agentes não instala plugins de terceiros no Codex global. Confirme skills e capacidade de fresh-context no runtime antes de prometer uma revisão Goldfish.
+
 ## Fluxo padrão
 
 ### Git Flow
@@ -241,7 +247,7 @@ Registre uma ficha leve por tarefa/bloco e consolide mensalmente. Use um identif
 | Confiabilidade de CI | Execuções que terminam com sucesso e duração por check; separe falha de código, runner e configuração. |
 | Resultado pós-integração | Lead time até deploy, frequência, falha de mudança, rollback/hotfix e tempo de recuperação, somente em produtos implantados e com fonte de evento autorizada. |
 
-Mantenha um conjunto **versionado e manual** de casos de avaliação por classe: correção pequena; feature ambígua ainda em descoberta; tarefas paralelas independentes versus dependentes; QA `FAIL` seguido de correção; falha/timeout de ferramenta; conteúdo recuperado com instrução maliciosa; e operação externa sem autorização. Use a [avaliação manual v1](docs/evaluations/agent-workflow-v1.md), compare comportamento e evidências sob os mesmos critérios e atualize os casos a partir de falhas reais minimizadas e autorizadas. Uma avaliação por LLM não substitui verificações determinísticas nem julgamento humano.
+Mantenha casos de avaliação versionados. O inventário [agent-workflow-v1.json](docs/evaluations/agent-workflow-v1.json) liga E1–E8 às asserções seguras da [especificação v1](docs/evaluations/agent-workflow-v1.md). Em worktree limpa, `python3 scripts/agent_eval.py prepare --runs 3` cria um registro PENDING pinado com SHA do pacote e fingerprints dos perfis; cada trial enumera todos os perfis exigidos e exige identidade observada por perfil com hash idêntico ao manifest antes de aceitar PASS. `python3 scripts/agent_eval.py validate <registro.json>` também exige evidências locais dentro da pasta do run com SHA-256 conferido e juiz determinístico. O modo `--allow-dirty` é somente para smoke local e nunca aceita PASS. O CI só valida manifest/registro: não invoca perfis TOML. No Codex CLI verificado (`0.166.0`), `codex exec --profile` significa perfil de configuração e não prova seleção de `agents/*.toml`; os testes de comportamento permanecem PENDING até uma rota runtime identificável e isolada estar disponível. Uma avaliação por LLM não substitui verificações determinísticas nem julgamento humano.
 
 Use fontes observáveis: eventos GitHub/GitLab para branches, PRs e review; logs de CI para duração/falhas; runtime para custo, latência e chamadas; plataforma de deploy para release, rollback e recuperação. Separe tempo ativo de fila/espera quando a fonte permitir e segmente por classe e risco. Ausência de integração é `N/A`; não invente timestamps.
 
@@ -254,6 +260,8 @@ Para aplicações implantáveis, o `devops-sre` documenta artefato/commit, ambie
 Para este pacote Codex, não existe aplicação em produção: a release é um conjunto versionado de perfis TOML. CI instala em `CODEX_HOME` temporário, compara conteúdo/permissões, exercita backup/restauração e valida o SHA. A instalação global continua uma ação consciente e reversível, com `--dry-run`, backup e verificação pós-instalação.
 
 Consulte [EXAMPLE.md](EXAMPLE.md) para um cenário fictício de handoff e revisão; ele não representa evidência de mercado.
+
+Para reunir os gates de descoberta, especificação, readiness, CI, produção e métricas, consulte o [playbook de entrega](docs/delivery-playbook.md) e a [matriz de prontidão](docs/project-readiness-checklist.md).
 
 ## Segurança e limites
 
