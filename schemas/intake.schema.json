@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shallow product intake",
+  "type": "object",
+  "required": ["seed_raw", "artifact_type", "goal", "audience", "non_negotiables", "anti_goals", "references", "gaps", "deadline", "budget_credits", "risk_hint", "open_questions", "assumptions"],
+  "properties": {
+    "seed_raw": {"type": "string", "minLength": 1},
+    "artifact_type": {"type": ["string", "null"]},
+    "goal": {"type": ["string", "null"]},
+    "audience": {"type": ["string", "null"]},
+    "non_negotiables": {"type": "array", "items": {"type": "string"}},
+    "anti_goals": {"type": "array", "items": {"type": "string"}},
+    "references": {"type": "array", "items": {"type": "string"}},
+    "gaps": {"type": "array", "minItems": 5, "maxItems": 12, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 500}},
+    "deadline": {"type": ["string", "null"]},
+    "budget_credits": {"type": ["number", "null"], "minimum": 0},
+    "risk_hint": {"type": ["string", "null"]},
+    "open_questions": {"type": "array", "maxItems": 3, "items": {"type": "string"}},
+    "assumptions": {"type": "array", "items": {"$ref": "assumption.schema.json"}}
+  },
+  "additionalProperties": false
+}

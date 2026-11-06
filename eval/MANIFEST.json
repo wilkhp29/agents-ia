@@ -1,0 +1,8 @@
+{
+  "suite": "agent-workflow-v1",
+  "status": "N/A",
+  "reason": "No authorized historical task corpus with reference diffs was present during implementation; no real tasks were fabricated.",
+  "existing_inventory": "../docs/evaluations/agent-workflow-v1.json",
+  "existing_inventory_status": "pending runtime trials; not a historical reference dataset",
+  "inventory_sha256": "421a1f6df65be67487f225637a4f9648bbe065e5a99ba68a338adb0e13a3b1cb"
+}

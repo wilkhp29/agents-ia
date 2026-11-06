@@ -30,7 +30,25 @@ Quando houver interface, `product-designer` detalha tarefa, hierarquia, fluxo, e
 
 `software-engineer` consulta a base de conhecimento disponível e segue Git Flow. Usa `develop` como base de `feature/*`; se `develop` não existir, cria-a localmente a partir da linha primária (`main` ou `master`) que preserva a integração. Em caso de histórico, upstream ou alterações locais ambíguas, preserva o estado e consulta o líder.
 
-O handoff para engenharia usa o formato compacto `objetivo/fase | responsável | critérios | decisões/fora de escopo | riscos/limites | área | evidências/lacunas | saída/próximo passo`. Subtarefas independentes de pesquisa podem ocorrer em paralelo; implementação dependente de arquitetura espera sua decisão. O engenheiro roda primeiro a verificação rápida da área alterada e depois todas as checagens obrigatórias antes da entrega. Ao concluir, informa SHA-base, HEAD, arquivos, critérios cobertos, comandos/exit codes, riscos e lacunas, sem repetir em prosa o conteúdo do diff.
+O handoff para engenharia segue [schemas/handoff.schema.json](schemas/handoff.schema.json):
+
+```json
+{
+  "goal": "Propor um MVP para finanças pessoais",
+  "phase": "implementação",
+  "owner": "software-engineer",
+  "criteria": ["AC-1: usuário registra uma despesa"],
+  "decisions": ["MVP local; sem sincronização bancária"],
+  "out_of_scope": ["Conexão com bancos"],
+  "risks": ["Dados financeiros pessoais"],
+  "paths": ["src/expenses/"],
+  "evidence": ["Plano aprovado pelo usuário"],
+  "gaps": ["Stack do projeto ainda não auditada"],
+  "next": "Auditar projeto e implementar dentro do escopo aprovado"
+}
+```
+
+Subtarefas independentes de pesquisa podem ocorrer em paralelo; implementação dependente de arquitetura espera sua decisão. O engenheiro roda primeiro a verificação rápida da área alterada e depois todas as checagens obrigatórias antes da entrega. Ao concluir, informa SHA-base, HEAD, arquivos, critérios cobertos, comandos/exit codes, riscos e lacunas, sem repetir em prosa o conteúdo do diff.
 
 Se a auditoria apontar um teste ou CI local ausente que impeça comprovar os critérios aprovados, o plano inclui sua criação e o engenheiro a implementa nessa mesma branch. Regras remotas, secrets, publicação, deploy ou acesso a produção são descritos como decisão/ação externa separada e só ocorrem com autorização explícita.
 
@@ -50,7 +68,13 @@ Antes do lançamento, `devops-sre` audita pipeline e recuperação, propõe depl
 
 ## 10. Fechamento e melhoria do processo
 
-O líder só encerra com critérios e gates aplicáveis evidenciados, pendências e itens fora de escopo declarados. A ficha leve da tarefa registra classe, duração por fase, especialistas/handoffs, critérios e evidências, rodadas QA, achados reabertos, bloqueios e custo/tokens apenas se o runtime os fornecer. Mensalmente, a equipe segmenta aprovação na primeira revisão, reabertura, cobertura de evidências, handoffs devolvidos, tempo de ciclo e custo por classe. Mede baseline antes de estabelecer metas; não estima dados ausentes nem pontua indivíduos. Uma nota de 0–100 só é operacional depois de avaliação versionada, fórmula publicada, amostra representativa e incerteza declarada.
+O líder só encerra com critérios e gates aplicáveis evidenciados, pendências e itens fora de escopo declarados. Cada evento no ledger segue [schemas/ledger.schema.json](schemas/ledger.schema.json), uma linha JSON append-only por evento. Registre somente classe, agentes, tentativas, nomes/resultado de checks e tokens se o runtime os fornecer; não inclua prompts brutos, PII, segredos ou saídas completas de ferramentas. Mede baseline antes de estabelecer metas; não estima dados ausentes nem pontua indivíduos. Uma nota de 0–100 só é operacional depois de avaliação versionada, fórmula publicada, amostra representativa e incerteza declarada.
+
+Exemplo de evento minimizado:
+
+```json
+{"task":"task-2026-001","class":"A","agent":"software-engineer","attempts":1,"tests":["unit_suite"],"judge":"pending","human":"none","tokens_in":null,"tokens_out":null,"ts":"2026-11-06T12:00:00Z","duration_seconds":null,"cost_credits":null,"failure_code":"none","review_findings":0,"reopened":0}
+```
 
 ## 11. Compra empresarial faturada
 

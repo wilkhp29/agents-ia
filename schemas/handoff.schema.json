@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ia.local/schemas/handoff.schema.json",
+  "title": "Agent handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["goal", "phase", "owner", "criteria", "decisions", "out_of_scope", "risks", "paths", "evidence", "gaps", "next"],
+  "properties": {
+    "goal": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "phase": {"type": "string", "minLength": 1, "maxLength": 100},
+    "owner": {"type": "string", "minLength": 1, "maxLength": 100},
+    "criteria": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "decisions": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "out_of_scope": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "risks": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "paths": {"type": "array", "items": {"type": "string", "maxLength": 500}},
+    "evidence": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "gaps": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "next": {"type": "string", "minLength": 1, "maxLength": 1000}
+  },
+  "$defs": {"item": {"type": "string", "maxLength": 2000}}
+}
