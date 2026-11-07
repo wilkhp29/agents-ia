@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Product assumption",
+  "type": "object",
+  "required": ["statement", "reversal", "blast"],
+  "properties": {
+    "statement": {"type": "string", "minLength": 1},
+    "reversal": {"enum": ["low", "high"]},
+    "blast": {"type": "integer", "minimum": 0},
+    "source": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}

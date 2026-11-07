@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import shlex
@@ -315,6 +316,312 @@ def validate_local_markdown_links() -> None:
     print(f"Markdown local links: PASS ({len(markdown_files())} files scanned)")
 
 
+
+def validate_eval_manifest() -> None:
+    manifest = json.loads((ROOT / "eval/MANIFEST.json").read_text(encoding="utf-8"))
+    suite_path = (ROOT / "docs/evaluations/agent-workflow-v1.json").resolve()
+    suite_bytes = suite_path.read_bytes()
+    if hashlib.sha256(suite_bytes).hexdigest() != manifest.get("inventory_sha256"):
+        raise ValueError("eval manifest inventory SHA does not match source")
+    run = subprocess.run([sys.executable, str(ROOT / "scripts/eval_run.py"), "--dry-run"],
+                         cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+    if run.returncode != 0:
+        raise ValueError(f"eval dry-run failed ({run.returncode}):\n{run.stdout}")
+    with tempfile.TemporaryDirectory(prefix="eval-manifest-validation-") as temp:
+        fixture_manifest = dict(manifest)
+        fixture_manifest["inventory_sha256"] = "0" * 64
+        fixture = Path(temp) / "MANIFEST.json"
+        fixture.write_text(json.dumps(fixture_manifest), encoding="utf-8")
+        negative = subprocess.run([sys.executable, str(ROOT / "scripts/eval_run.py"), "--dry-run", "--manifest", str(fixture)],
+                                  cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+        if negative.returncode == 0 or "inventory SHA mismatch" not in negative.stdout:
+            raise ValueError("eval runner accepted an altered inventory hash")
+    with tempfile.TemporaryDirectory(prefix="policy-path-validation-") as temp:
+        fixture = Path(temp)
+        subprocess.run(["git", "init", "-q", str(fixture)], check=True)
+        subprocess.run(["git", "-C", str(fixture), "config", "user.email", "fixture@example.invalid"], check=True)
+        subprocess.run(["git", "-C", str(fixture), "config", "user.name", "fixture"], check=True)
+        (fixture / "safe.txt").write_text("base\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(fixture), "add", "safe.txt"], check=True)
+        subprocess.run(["git", "-C", str(fixture), "commit", "-qm", "base"], check=True)
+        base_sha = subprocess.run(["git", "-C", str(fixture), "rev-parse", "HEAD"], check=True, text=True, stdout=subprocess.PIPE).stdout.strip()
+        (fixture / ".github").mkdir(); (fixture / ".github/workflows").mkdir()
+        (fixture / ".github/workflows/ci.yml").write_text("name: check\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(fixture), "add", ".github/workflows/ci.yml"], check=True)
+        subprocess.run(["git", "-C", str(fixture), "commit", "-qm", "protected path"], check=True)
+        for record, mode, base, expected in (("", "pull_request", base_sha, 2), ("[policy-class:A]", "pull_request", base_sha, 1),
+                                             ("[policy-class:C]", "pull_request", base_sha, 0),
+                                             ("", "push", base_sha, 0), ("[policy-class:C]", "push", base_sha, 0)):
+            env = os.environ.copy(); env["POLICY_CLASS"] = record
+            check = subprocess.run([sys.executable, str(ROOT / "scripts/check_policy_paths.py"), "--mode", mode,
+                                    "--base", base, "--head", "HEAD"], cwd=fixture, env=env, text=True,
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+            if check.returncode != expected:
+                raise ValueError(f"policy path fixture mismatch for mode={mode} record={record!r}:\n{check.stdout}")
+        for mode, declared, path, expected in (("pull_request", "[policy-class:A]", "safe.txt", 0),
+                                               ("pull_request", "", "safe.txt", 2),
+                                               ("pull_request", "[policy-class:B]", "safe.txt", 1),
+                                               ("push", "", "safe.txt", 0),
+                                               ("push", "[policy-class:A]", "safe.txt", 0),
+                                               ("push", "[policy-class:B]", "safe.txt", 0)):
+            # Restore a base-only diff to exercise A/B markers independent from protected paths.
+            subprocess.run(["git", "-C", str(fixture), "reset", "--hard", base_sha], check=True, stdout=subprocess.PIPE)
+            (fixture / path).write_text("changed\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(fixture), "add", path], check=True)
+            subprocess.run(["git", "-C", str(fixture), "commit", "-qm", "safe change"], check=True)
+            env = os.environ.copy(); env["POLICY_CLASS"] = declared
+            check = subprocess.run([sys.executable, str(ROOT / "scripts/check_policy_paths.py"), "--mode", mode,
+                                    "--base", base_sha, "--head", "HEAD"], cwd=fixture, env=env, text=True,
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+            if check.returncode != expected:
+                raise ValueError(f"policy safe-path fixture mismatch {declared!r}:\n{check.stdout}")
+    empty_push = subprocess.run([sys.executable, str(ROOT / "scripts/check_policy_paths.py"), "--mode", "push",
+                                 "--base", "HEAD", "--head", "HEAD"], cwd=ROOT, env={**os.environ, "POLICY_CLASS":""},
+                                text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+    if empty_push.returncode != 0 or '"class": "A"' not in empty_push.stdout or "informational" not in empty_push.stdout:
+        raise ValueError("policy path gate did not report an informational class for a valid push diff")
+    null_sha_push = subprocess.run([sys.executable, str(ROOT / "scripts/check_policy_paths.py"), "--mode", "push",
+                                    "--base", "0" * 40, "--head", "HEAD"], cwd=ROOT,
+                                   env={**os.environ, "POLICY_CLASS":"[policy-class:C]"}, text=True,
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+    if null_sha_push.returncode != 0 or "skipped path classification" not in null_sha_push.stdout:
+        raise ValueError("policy path gate did not skip a zero-SHA branch event independently of metadata")
+    print("Eval manifest integrity: PASS (inventory SHA; altered-hash fixture rejected)")
+    print("Policy path gate: PASS (PR markers enforced; pushes informational; branch events skipped)")
+
+
+def validate_json_schema_documents() -> None:
+    """Validate the supported JSON Schema subset and representative instances."""
+    schema_dir = ROOT / "schemas"
+    all_schemas = {path.stem.removesuffix(".schema"): json.loads(path.read_text(encoding="utf-8"))
+                   for path in schema_dir.glob("*.schema.json")}
+    supported_keywords = {
+        "$ref", "$defs", "type", "const", "enum", "oneOf", "allOf", "if", "then",
+        "minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems",
+        "items", "properties", "required", "additionalProperties", "format", "pattern", "uniqueItems",
+    }
+    def validate_schema_rule(rule: object, label: str, schema: dict) -> None:
+        if not isinstance(rule, dict):
+            raise ValueError(f"{label}: schema rule must be an object")
+        unsupported = set(rule) - supported_keywords - {"$schema", "$id", "title", "description"}
+        if unsupported:
+            raise ValueError(f"{label}: unsupported schema keywords {sorted(unsupported)}")
+        if "pattern" in rule:
+            try: re.compile(rule["pattern"])
+            except (TypeError, re.error) as error: raise ValueError(f"{label}: invalid pattern") from error
+        ref = rule.get("$ref")
+        if ref:
+            if ref.startswith("#/$defs/"):
+                if ref.rsplit("/", 1)[1] not in schema.get("$defs", {}):
+                    raise ValueError(f"{label}: unresolved local ref {ref}")
+            else:
+                target = ref.rsplit("/", 1)[-1]
+                if target not in {f"{name}.schema.json" for name in all_schemas}:
+                    raise ValueError(f"{label}: unresolved external ref {ref}")
+        if "properties" in rule:
+            if not isinstance(rule["properties"], dict):
+                raise ValueError(f"{label}: properties must be an object")
+            for name, child in rule["properties"].items():
+                validate_schema_rule(child, f"{label}.{name}", schema)
+        if "$defs" in rule:
+            if not isinstance(rule["$defs"], dict):
+                raise ValueError(f"{label}: $defs must be an object")
+            for name, child in rule["$defs"].items():
+                validate_schema_rule(child, f"{label}.$defs.{name}", schema)
+        if "items" in rule:
+            validate_schema_rule(rule["items"], f"{label}.items", schema)
+        for keyword in ("oneOf", "allOf"):
+            if keyword in rule:
+                if not isinstance(rule[keyword], list):
+                    raise ValueError(f"{label}: {keyword} must be an array")
+                for index, child in enumerate(rule[keyword]):
+                    validate_schema_rule(child, f"{label}.{keyword}[{index}]", schema)
+        for keyword in ("if", "then"):
+            if keyword in rule:
+                validate_schema_rule(rule[keyword], f"{label}.{keyword}", schema)
+
+    for schema_path in sorted(schema_dir.glob("*.schema.json")):
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        if schema.get("type") != "object" or schema.get("additionalProperties") is not False:
+            raise ValueError(f"{schema_path.name}: top-level object must deny additional properties")
+        required = schema.get("required")
+        properties = schema.get("properties")
+        if not isinstance(required, list) or not isinstance(properties, dict):
+            raise ValueError(f"{schema_path.name}: required/properties must be declared")
+        if set(required) - set(properties):
+            raise ValueError(f"{schema_path.name}: required keys missing from properties")
+        validate_schema_rule(schema, schema_path.name, schema)
+        print(f"JSON schema structure: PASS ({schema_path.relative_to(ROOT)})")
+
+    # Validate examples against the concrete handoff/ledger contracts.
+    handoff = json.loads((ROOT / "schemas/handoff.schema.json").read_text(encoding="utf-8"))
+    ledger = json.loads((ROOT / "schemas/ledger.schema.json").read_text(encoding="utf-8"))
+    example = (ROOT / "EXAMPLE.md").read_text(encoding="utf-8")
+    fences = re.findall(r"```json\s*\n(.*?)\n```", example, re.DOTALL)
+    parsed = [json.loads(block) for block in fences]
+    handoff_example = next((item for item in parsed if "goal" in item), None)
+    ledger_example = next((item for item in parsed if "task" in item), None)
+    for document, schema, label in ((handoff_example, handoff, "handoff"), (ledger_example, ledger, "ledger")):
+        if not isinstance(document, dict) or set(document) - set(schema["properties"]):
+            raise ValueError(f"EXAMPLE.md has an incomplete or unknown-field {label} JSON example")
+        if set(schema["required"]) - set(document):
+            raise ValueError(f"EXAMPLE.md {label} lacks required fields")
+        for key, value in document.items():
+            rule = schema["properties"][key]
+            allowed = rule.get("enum")
+            if allowed is not None and value not in allowed:
+                raise ValueError(f"EXAMPLE.md {label}.{key} violates enum")
+            kind = rule.get("type")
+            kinds = kind if isinstance(kind, list) else [kind]
+            python_kind = {"string": str, "array": list, "integer": int, "object": dict, "boolean": bool}
+            if kind and not any((kind_name == "null" and value is None) or
+                                (kind_name in python_kind and isinstance(value, python_kind[kind_name]) and
+                                 not (kind_name == "integer" and isinstance(value, bool))) for kind_name in kinds):
+                raise ValueError(f"EXAMPLE.md {label}.{key} has wrong type")
+    def check_value(value: object, rule: dict, defs: dict, label: str) -> None:
+        if "$ref" in rule:
+            target = rule["$ref"]
+            if target.startswith("#/$defs/") and target.rsplit("/", 1)[1] in defs:
+                check_value(value, defs[target.rsplit("/", 1)[1]], defs, label)
+                return
+            external_name = target.rsplit("/", 1)[-1].removesuffix(".schema.json")
+            if not target.startswith("#") and external_name in all_schemas:
+                check_value(value, all_schemas[external_name], all_schemas[external_name].get("$defs", {}), label)
+                return
+            raise ValueError(f"{label}: unsupported/unresolved schema ref {target}")
+        expected = rule.get("type")
+        kinds = expected if isinstance(expected, list) else ([expected] if expected else [])
+        type_map = {"string": str, "array": list, "integer": int, "number": (int, float), "object": dict, "boolean": bool}
+        if kinds and not any((kind == "null" and value is None) or
+                             (kind in type_map and isinstance(value, type_map[kind]) and
+                              not (kind in ("integer", "number") and isinstance(value, bool))) for kind in kinds):
+            raise ValueError(f"{label}: invalid type")
+        if "enum" in rule and value not in rule["enum"]:
+            raise ValueError(f"{label}: invalid enum")
+        const_value = rule.get("const", object())
+        if "const" in rule and (isinstance(value, bool) != isinstance(const_value, bool) or value != const_value):
+            raise ValueError(f"{label}: invalid const")
+        if "oneOf" in rule:
+            matching = sum(schema_accepts(value, branch, defs, label) for branch in rule["oneOf"])
+            if matching != 1:
+                raise ValueError(f"{label}: must match exactly one oneOf branch")
+        if "allOf" in rule:
+            for branch in rule["allOf"]:
+                check_value(value, branch, defs, label)
+        if "if" in rule and schema_accepts(value, rule["if"], defs, label) and "then" in rule:
+            check_value(value, rule["then"], defs, label)
+        if isinstance(value, str):
+            if len(value) < rule.get("minLength", 0) or len(value) > rule.get("maxLength", float("inf")):
+                raise ValueError(f"{label}: invalid string length")
+            if "pattern" in rule and re.fullmatch(rule["pattern"], value) is None:
+                raise ValueError(f"{label}: string does not match pattern")
+            if rule.get("format") == "date-time":
+                from datetime import datetime
+                try:
+                    if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})", value) is None:
+                        raise ValueError("date-time must be RFC 3339 with timezone")
+                    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    if parsed.tzinfo is None or parsed.utcoffset() is None:
+                        raise ValueError("date-time must include a timezone")
+                except ValueError as error: raise ValueError(f"{label}: invalid date-time") from error
+        if rule.get("format") not in (None, "date-time"):
+            raise ValueError(f"{label}: unsupported format {rule['format']}")
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if isinstance(value, float) and not math.isfinite(value):
+                raise ValueError(f"{label}: non-finite number")
+            if value < rule.get("minimum", float("-inf")) or value > rule.get("maximum", float("inf")):
+                raise ValueError(f"{label}: numeric bound violated")
+        if isinstance(value, list):
+            if len(value) < rule.get("minItems", 0) or len(value) > rule.get("maxItems", float("inf")):
+                raise ValueError(f"{label}: array length violated")
+            if rule.get("uniqueItems") and len({json.dumps(item, sort_keys=True) for item in value}) != len(value):
+                raise ValueError(f"{label}: array items are not unique")
+            if "items" in rule:
+                for index, item in enumerate(value): check_value(item, rule["items"], defs, f"{label}[{index}]")
+        if isinstance(value, dict):
+            props = rule.get("properties", {})
+            required_fields = set(rule.get("required", []))
+            if required_fields - set(value): raise ValueError(f"{label}: missing required fields")
+            if rule.get("additionalProperties") is False and set(value) - set(props):
+                raise ValueError(f"{label}: additional properties")
+            for key, item in value.items():
+                if key in props: check_value(item, props[key], defs, f"{label}.{key}")
+
+    def schema_accepts(value: object, rule: dict, defs: dict, label: str) -> bool:
+        try:
+            check_value(value, rule, defs, label)
+        except ValueError:
+            return False
+        return True
+
+    # Ensure the idea-to-delivery handoff contract remains executable by this
+    # repository's JSON Schema subset validator, including provenance guards.
+    task_envelope = all_schemas["agent-task-envelope"]
+    task_example = json.loads((ROOT / "docs/agent-delivery/task-envelope.example.json").read_text(encoding="utf-8"))
+    check_value(task_example, task_envelope, task_envelope.get("$defs", {}), "agent task envelope")
+    invalid_task = json.loads(json.dumps(task_example))
+    invalid_task["envelope_version"] = True
+    try: check_value(invalid_task, task_envelope, task_envelope.get("$defs", {}), "invalid agent task envelope")
+    except ValueError: pass
+    else: raise ValueError("agent task envelope schema accepted a boolean where an integer constant is required")
+    invalid_task = json.loads(json.dumps(task_example))
+    invalid_task["provenance"]["identity_verified"] = True
+    try: check_value(invalid_task, task_envelope, task_envelope.get("$defs", {}), "unverified agent identity")
+    except ValueError: pass
+    else: raise ValueError("agent task envelope schema accepted verified identity without observed IDs")
+
+    intake_schema = all_schemas["intake"]
+    assumption_schema = all_schemas["assumption"]
+    intake_fixture = {"seed_raw":"Build a page\nFor local users\nKeep it fast", "artifact_type":None,
+        "goal":"Build page", "audience":"local users", "non_negotiables":[], "anti_goals":[],
+        "references":[], "gaps":["platform", "users", "success signal", "integrations", "timeline"],
+        "deadline":None, "budget_credits":None, "risk_hint":None,
+        "open_questions":[], "assumptions":[{"statement":"Use current stack","reversal":"low","blast":2,"source":None}]}
+    check_value(intake_fixture, intake_schema, {}, "intake")
+    check_value(intake_fixture["assumptions"][0], assumption_schema, {}, "assumption")
+    for invalid in ({**intake_fixture, "open_questions":["1","2","3","4"]},
+                    {**intake_fixture, "gaps":["only four", "two", "three", "four"]},
+                    {**intake_fixture, "gaps":["same", "same", "three", "four", "five"]},
+                    {**intake_fixture, "unexpected":True},
+                    {**intake_fixture, "assumptions":[{"statement":"","reversal":"medium","blast":-1}]}):
+        try: check_value(invalid, intake_schema, {}, "invalid intake")
+        except ValueError: pass
+        else: raise ValueError("JSON schema validator accepted an invalid intake fixture")
+    for document, schema, label in ((handoff_example, handoff, "handoff"), (ledger_example, ledger, "ledger")):
+        check_value(document, schema, schema.get("$defs", {}), label)
+    invalid_ledger = dict(ledger_example); invalid_ledger["attempts"] = -1
+    try: check_value(invalid_ledger, ledger, ledger.get("$defs", {}), "invalid ledger")
+    except ValueError: pass
+    else: raise ValueError("JSON schema validator accepted negative ledger attempts")
+    invalid_ledger_time = dict(ledger_example); invalid_ledger_time["ts"] = "2026-11-06T12:00:00"
+    try: check_value(invalid_ledger_time, ledger, ledger.get("$defs", {}), "invalid ledger timestamp")
+    except ValueError: pass
+    else: raise ValueError("JSON schema validator accepted a date-time without timezone")
+    invalid_ledger_number = dict(ledger_example); invalid_ledger_number["duration_seconds"] = float("nan")
+    try: check_value(invalid_ledger_number, ledger, ledger.get("$defs", {}), "invalid ledger metric")
+    except ValueError: pass
+    else: raise ValueError("JSON schema validator accepted a non-finite ledger metric")
+    runtime_metric_schema = all_schemas["codex-runtime-metric"]
+    runtime_metric = {
+        "schema_version": 2, "source": "codex_cli_jsonl", "run_id": "run_" + "a" * 24,
+        "task_size": "small", "runtime_version": "codex-cli 0.166.0", "status": "completed",
+        "started_at": "2026-11-06T12:00:00Z", "captured_at": "2026-11-06T12:00:01Z",
+        "duration_seconds": 1.0, "turns": 1, "turns_completed": 1, "failures": 0,
+        "collaboration_tool_calls": 1, "agent_spawn_calls": 1, "agent_spawn_completed": 1,
+        "agent_spawn_failures": 0, "agent_dispatches_observed": 1,
+        "unknown_events": 0, "profile_identity_verified": False,
+        "tokens_input": 10, "tokens_output": 5, "cached_tokens_input": 2,
+        "reasoning_tokens_output": 1,
+    }
+    check_value(runtime_metric, runtime_metric_schema, runtime_metric_schema.get("$defs", {}), "runtime metric")
+    for field, value in (("prompt", "private seed"), ("profile_identity_verified", True)):
+        invalid_metric = dict(runtime_metric); invalid_metric[field] = value
+        try: check_value(invalid_metric, runtime_metric_schema, runtime_metric_schema.get("$defs", {}), "invalid runtime metric")
+        except ValueError: pass
+        else: raise ValueError(f"runtime metric schema accepted disallowed {field}")
+    print("JSON schema fixtures: PASS (types, enums, refs, lengths, bounds, format, additionalProperties, intake/assumption/handoff/ledger/runtime metric; negative cases)")
+
+
 def run_installer(args: list[str], codex_home: Path) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["CODEX_HOME"] = str(codex_home)
@@ -339,6 +646,33 @@ def validate_installer_isolation(names: set[str]) -> None:
             raise ValueError(f"isolated dry-run failed ({dry.returncode}):\n{dry.stdout}")
         if (dry_home / "agents").exists():
             raise ValueError("installer --dry-run wrote to CODEX_HOME")
+
+        squad_home = temporary_root / "squad-home"
+        squad_destination = squad_home / "agents"
+        squad_destination.mkdir(parents=True)
+        sentinel = b"keep profile outside selected squad\n"
+        (squad_destination / "custom.toml").write_bytes(sentinel)
+        squad_dry = run_installer(["--squad", "core", "--dry-run"], squad_home)
+        if squad_dry.returncode != 0 or "Copiaria" not in squad_dry.stdout:
+            raise ValueError(f"selected squad dry-run failed ({squad_dry.returncode}):\n{squad_dry.stdout}")
+        if set(path.name for path in squad_destination.iterdir()) != {"custom.toml"}:
+            raise ValueError("selected squad dry-run changed destination files")
+        squad_install = run_installer(["--squad=core"], squad_home)
+        if squad_install.returncode != 0:
+            raise ValueError(f"selected squad install failed ({squad_install.returncode}):\n{squad_install.stdout}")
+        core_names = {
+            line.strip() + ".toml"
+            for line in (ROOT / "squads/core.txt").read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+        actual_squad = {path.name for path in squad_destination.glob("*.toml")}
+        if actual_squad != core_names | {"custom.toml"}:
+            raise ValueError(f"selected squad changed wrong profile set: {sorted(actual_squad)}")
+        if (squad_destination / "custom.toml").read_bytes() != sentinel:
+            raise ValueError("selected squad modified a profile outside the squad")
+        invalid_squad = run_installer(["--squad", "missing"], temporary_root / "invalid-squad-home")
+        if invalid_squad.returncode == 0:
+            raise ValueError("installer accepted an unknown squad")
 
         codex_home = temporary_root / "codex-home"
         destination = codex_home / "agents"
@@ -426,6 +760,33 @@ def validate_agent_eval_harness() -> None:
         )
         if validated.returncode != 0:
             raise ValueError(f"agent eval record validation failed ({validated.returncode}):\n{validated.stdout}")
+
+        size_suite = ROOT / "docs/evaluations/delivery-size-v1.json"
+        size_data = json.loads(size_suite.read_text(encoding="utf-8"))
+        if size_data.get("repetitions_default") != 3 or size_data.get("hard_fail_severities") != ["P0", "P1"]:
+            raise ValueError("delivery-size suite must pin three default repetitions and P0/P1 hard-fail")
+        size_cases = size_data.get("cases", [])
+        for size in ("small", "medium", "large"):
+            cases_for_size = [case for case in size_cases if case.get("size") == size]
+            if len(cases_for_size) != 4 or sum(case.get("partition") == "calibration" for case in cases_for_size) != 3 or sum(case.get("partition") == "holdout" for case in cases_for_size) != 1:
+                raise ValueError(f"{size} suite must contain three calibration cases and one holdout")
+        if any(name not in {path.stem for path in AGENTS_DIR.glob("*.toml")} for case in size_cases for name in case.get("profiles", [])):
+            raise ValueError("delivery-size suite references a profile missing from agents/")
+        size_record = Path(temp) / "delivery-size-pending.json"
+        size_prepared = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "prepare", "--suite", str(size_suite),
+             "--case", "S1", "--case", "M4", "--case", "L4", "--runs", "3", "--profiles", str(AGENTS_DIR),
+             "--output", str(size_record), "--allow-dirty"],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if size_prepared.returncode != 0:
+            raise ValueError(f"delivery-size eval prepare failed ({size_prepared.returncode}):\n{size_prepared.stdout}")
+        size_validated = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/agent_eval.py"), "validate", str(size_record)],
+            cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        if size_validated.returncode != 0 or "Recorded result: PENDING" not in size_validated.stdout:
+            raise ValueError(f"delivery-size pending record validation failed:\n{size_validated.stdout}")
 
         codex_home = Path(temp) / "codex-home"
         (codex_home / "agents").mkdir(parents=True)
@@ -591,7 +952,7 @@ def validate_agent_eval_harness() -> None:
         )
         if subset_check.returncode != 0:
             raise ValueError(f"agent eval subset validation failed ({subset_check.returncode}):\n{subset_check.stdout}")
-    print("Agent eval harness: PASS (8 cases × 3 pending trials; temp record; no runtime invocation)")
+    print("Agent eval harness: PASS (E1–E8 plus small/medium/large suite; pending records; no runtime invocation)")
 
 
 def main() -> int:
@@ -604,6 +965,13 @@ def main() -> int:
         validate_egm_shell_commands()
         validate_readme_manifest(names)
         validate_local_markdown_links()
+        validate_json_schema_documents()
+        validate_eval_manifest()
+        trace_tests = subprocess.run([sys.executable, str(ROOT / "scripts/test_analyze_traces.py")],
+                                     cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+        if trace_tests.returncode != 0:
+            raise ValueError(f"trace analysis tests failed ({trace_tests.returncode}):\n{trace_tests.stdout}")
+        print("Trace analysis: PASS (schema bounds and sensitive values rejected)")
         validate_installer_isolation(names)
         validate_agent_eval_harness()
     except (OSError, ValueError, tomllib.TOMLDecodeError) as error:

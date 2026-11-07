@@ -42,7 +42,8 @@ def schema_errors(value, schema, root_schema, path="$", depth=0):
         }
         if not any(matches.get(kind, False) for kind in allowed_types):
             return [f"{path}: wrong type"]
-    if "const" in schema and value != schema["const"]:
+    const_value = schema.get("const", object())
+    if "const" in schema and (isinstance(value, bool) != isinstance(const_value, bool) or value != const_value):
         return [f"{path}: wrong const"]
     if "enum" in schema and value not in schema["enum"]:
         return [f"{path}: outside enum"]
@@ -94,6 +95,13 @@ class DeliveryWorkflowTests(unittest.TestCase):
         self.assertIsNone(example["telemetry"]["cost"]["reported_usd"])
         self.assertFalse(example["provenance"]["provider_model"]["identity_verified"])
         self.assertEqual(schema_errors(example, schema, schema), [])
+
+    def test_task_envelope_rejects_boolean_version_for_integer_const(self):
+        schema = json.loads((ROOT / "schemas/agent-task-envelope.schema.json").read_text())
+        example = json.loads((ROOT / "docs/agent-delivery/task-envelope.example.json").read_text())
+        example["envelope_version"] = True
+        errors = schema_errors(example, schema, schema)
+        self.assertTrue(any("wrong const" in error for error in errors))
 
     def test_task_envelope_rejects_unknown_fields_and_invalid_limits(self):
         schema = json.loads((ROOT / "schemas/agent-task-envelope.schema.json").read_text())
