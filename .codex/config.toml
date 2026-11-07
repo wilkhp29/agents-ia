@@ -1,0 +1,69 @@
+# Project-scoped Codex agent roles. Paths are relative to this file's folder.
+# The root agent remains the coordinator; these roles are available for bounded
+# delegation when the task requires them.
+[features]
+multi_agent = true
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 3
+max_depth = 1
+
+[goals]
+max_goal_token_budget = 10000
+
+[agents.intake-normalizer]
+config_file = "../agents/intake-normalizer.toml"
+description = "Normalize a seed into a structured intake, assumptions, gaps, and questions."
+
+[agents.product-manager]
+config_file = "../agents/product-manager.toml"
+description = "Define product scope, acceptance criteria, and delivery priorities."
+
+[agents.software-architect]
+config_file = "../agents/software-architect.toml"
+description = "Review architecture, technical feasibility, and system risks."
+
+[agents.software-engineer]
+config_file = "../agents/software-engineer.toml"
+description = "Implement approved, scoped changes and return verification evidence."
+
+[agents.code-reviewer]
+config_file = "../agents/code-reviewer.toml"
+description = "Independently review code changes for correctness, security, and regressions."
+
+[agents.governance-specialist]
+config_file = "../agents/governance-specialist.toml"
+description = "Assess AI/product governance, privacy, controls, and accountability."
+
+[agents.product-qa]
+config_file = "../agents/product-qa.toml"
+description = "Terminal, read-only quality review of the current delivery snapshot."
+
+[agents.egm-comprehension]
+config_file = "../agents/egm-comprehension.toml"
+description = "Find ambiguities and missing assumptions in a specification."
+
+[agents.egm-zoom-out]
+config_file = "../agents/egm-zoom-out.toml"
+description = "Review product opportunity, user value, and priorities."
+
+[agents.egm-design]
+config_file = "../agents/egm-design.toml"
+description = "Critique architecture and design risks."
+
+[agents.egm-structural]
+config_file = "../agents/egm-structural.toml"
+description = "Check specification consistency, states, integrations, and edge cases."
+
+[agents.egm-style]
+config_file = "../agents/egm-style.toml"
+description = "Review specification clarity and editorial consistency."
+
+[agents.egm-implementation-readiness]
+config_file = "../agents/egm-implementation-readiness.toml"
+description = "Check implementation readiness, contracts, dependencies, and tests."
+
+[agents.egm-codebase-details]
+config_file = "../agents/egm-codebase-details.toml"
+description = "Map relevant codebase facts for a design or implementation decision."

@@ -3,25 +3,39 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Uso: ./install-agents.sh [--dry-run] [--replace]
+Uso: ./install-agents.sh [--dry-run] [--replace] [--squad NOME]
 
 Instala os agents deste repositório em "$CODEX_HOME/agents" (ou "$HOME/.codex/agents").
 Por segurança, arquivos de mesmo nome existentes não são substituídos sem --replace.
 --dry-run  Mostra as ações sem escrever arquivos.
 --replace  Faz backup dos arquivos conflitantes e os substitui.
+--squad    Instala somente perfis listados em squads/NOME.txt; os demais ficam intactos.
 EOF
 }
 
 dry_run=false
 replace=false
+selected_squad=""
+expect_squad=false
 for arg in "$@"; do
+  if [[ "$expect_squad" == true ]]; then
+    selected_squad="$arg"
+    expect_squad=false
+    continue
+  fi
   case "$arg" in
     --dry-run) dry_run=true ;;
     --replace) replace=true ;;
+    --squad) expect_squad=true ;;
+    --squad=*) selected_squad="${arg#--squad=}" ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'Opção desconhecida: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
   esac
 done
+if [[ "$expect_squad" == true || ( -n "$selected_squad" && ! "$selected_squad" =~ ^[a-z0-9][a-z0-9-]*$ ) ]]; then
+  printf 'Valor de --squad inválido ou ausente.\n' >&2
+  exit 2
+fi
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 agents_src="$script_dir/agents"
@@ -43,6 +57,32 @@ files=("$agents_src"/*.toml)
 if ((${#files[@]} == 0)); then
   printf 'Nenhum arquivo TOML de agente encontrado em %s\n' "$agents_src" >&2
   exit 1
+fi
+
+if [[ -n "$selected_squad" ]]; then
+  squad_file="$script_dir/squads/$selected_squad.txt"
+  if [[ -L "$squad_file" || ! -f "$squad_file" ]]; then
+    printf 'Squad não encontrado ou não é arquivo regular: %s\n' "$selected_squad" >&2
+    exit 1
+  fi
+  declared=()
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    line="${line//[[:space:]]/}"
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { printf 'Nome inválido no squad: %s\n' "$line" >&2; exit 1; }
+    declared+=("$line")
+  done < "$squad_file"
+  ((${#declared[@]} > 0)) || { printf 'Squad vazio: %s\n' "$selected_squad" >&2; exit 1; }
+  files=()
+  for name in "${declared[@]}"; do
+    src="$agents_src/$name.toml"
+    [[ -f "$src" && ! -L "$src" ]] || { printf 'Perfil inexistente/irregular no squad: %s\n' "$name" >&2; exit 1; }
+    if ((${#files[@]} > 0)); then
+      for existing in "${files[@]}"; do [[ "$existing" == "$src" ]] && { printf 'Perfil duplicado no squad: %s\n' "$name" >&2; exit 1; }; done
+    fi
+    files+=("$src")
+  done
 fi
 
 is_unchanged() {

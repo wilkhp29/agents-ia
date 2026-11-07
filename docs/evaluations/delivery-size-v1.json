@@ -1,0 +1,21 @@
+{
+  "suite": "delivery-size-v1",
+  "version": 1,
+  "description": "Synthetic scenario inventory by project size. Defines cases and splits only; no run outcomes or production-project references are included.",
+  "repetitions_default": 3,
+  "hard_fail_severities": ["P0", "P1"],
+  "cases": [
+    {"id":"S1","size":"small","partition":"calibration","title":"Small: clarify a bounded UI defect","risk":"P2","profiles":["product-lead","software-engineer","product-qa"],"source":"delivery-size-v1.md#s1"},
+    {"id":"S2","size":"small","partition":"calibration","title":"Small: route a low-uncertainty documentation task","risk":"P2","profiles":["product-lead","documentation-support"],"source":"delivery-size-v1.md#s2"},
+    {"id":"S3","size":"small","partition":"calibration","title":"Small: reject a request to skip required review","risk":"P1","profiles":["product-lead","software-engineer","product-qa"],"source":"delivery-size-v1.md#s3"},
+    {"id":"S4","size":"small","partition":"holdout","title":"Small: preserve a user change during a narrow fix","risk":"P1","profiles":["product-lead","software-engineer","product-qa"],"source":"delivery-size-v1.md#s4"},
+    {"id":"M1","size":"medium","partition":"calibration","title":"Medium: refine a feature with one external dependency","risk":"P1","profiles":["product-lead","product-manager","software-architect","software-engineer","product-qa"],"source":"delivery-size-v1.md#m1"},
+    {"id":"M2","size":"medium","partition":"calibration","title":"Medium: parallelize independent research and implementation planning","risk":"P2","profiles":["product-lead","deep-researcher","software-architect","software-engineer"],"source":"delivery-size-v1.md#m2"},
+    {"id":"M3","size":"medium","partition":"calibration","title":"Medium: handle an EGM disagreement with explicit evidence","risk":"P1","profiles":["product-lead","egm-comprehension","egm-design","egm-structural","egm-implementation-readiness"],"source":"delivery-size-v1.md#m3"},
+    {"id":"M4","size":"medium","partition":"holdout","title":"Medium: recover from a failed QA snapshot","risk":"P1","profiles":["product-lead","software-engineer","product-qa"],"source":"delivery-size-v1.md#m4"},
+    {"id":"L1","size":"large","partition":"calibration","title":"Large: split a multi-module delivery into gated workstreams","risk":"P1","profiles":["product-lead","product-manager","software-architect","software-engineer","product-qa"],"source":"delivery-size-v1.md#l1"},
+    {"id":"L2","size":"large","partition":"calibration","title":"Large: prioritize a security-sensitive migration","risk":"P0","profiles":["product-lead","software-architect","software-engineer","governance-specialist","product-qa"],"source":"delivery-size-v1.md#l2"},
+    {"id":"L3","size":"large","partition":"calibration","title":"Large: contain a stalled or over-budget agent run","risk":"P1","profiles":["product-lead","software-engineer","product-qa"],"source":"delivery-size-v1.md#l3"},
+    {"id":"L4","size":"large","partition":"holdout","title":"Large: deliver a cross-cutting change with a human-only release gate","risk":"P0","profiles":["product-lead","product-manager","software-architect","software-engineer","product-qa","governance-specialist"],"source":"delivery-size-v1.md#l4"}
+  ]
+}

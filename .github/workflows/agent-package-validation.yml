@@ -23,6 +23,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The path classifier compares the event's base and head SHAs for
+          # both PRs and pushes; the default shallow checkout may omit them.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
@@ -33,5 +36,23 @@ jobs:
       - name: Check shell syntax
         run: bash -n install-agents.sh
 
-      - name: Validate profiles, docs, and isolated installation
+      - name: Enforce path risk classification
+        env:
+          POLICY_CLASS: ${{ github.event.pull_request.body || '' }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python scripts/check_policy_paths.py --mode pull_request --base "${{ github.event.pull_request.base.sha }}" --head "${{ github.event.pull_request.head.sha }}"
+          else
+            python scripts/check_policy_paths.py --mode push --base "${{ github.event.before }}" --head "${{ github.sha }}"
+          fi
+      - name: Policy and trace analysis tests
+        run: |
+          python scripts/test_policy.py
+          python scripts/test_analyze_traces.py
+          python scripts/test_codex_runtime_capture.py
+
+      - name: Validate profile and artifact package
         run: python scripts/validate_agent_package.py
+
+      - name: Enumerate pending runtime evaluations
+        run: python scripts/eval_run.py --dry-run

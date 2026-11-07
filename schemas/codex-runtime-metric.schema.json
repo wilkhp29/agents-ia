@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agents-ia.local/schemas/codex-runtime-metric.schema.json",
+  "title": "Minimized Codex CLI runtime metric",
+  "description": "Version 2 allowlisted per-run telemetry. Spawn attempts, tool completion, and dispatch evidence are separate observations; none verifies the configured profile identity. Never includes prompt, response, tool arguments, tool output, paths, or raw thread identifiers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "source", "run_id", "task_size", "runtime_version", "status",
+    "started_at", "captured_at", "duration_seconds", "turns", "turns_completed",
+    "failures", "collaboration_tool_calls", "agent_spawn_calls", "agent_spawn_completed",
+    "agent_spawn_failures", "agent_dispatches_observed", "unknown_events", "profile_identity_verified",
+    "tokens_input", "tokens_output", "cached_tokens_input", "reasoning_tokens_output"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1, 2]},
+    "source": {"type": "string", "enum": ["codex_cli_jsonl"]},
+    "run_id": {"type": "string", "minLength": 28, "maxLength": 28, "pattern": "run_[0-9a-f]{24}"},
+    "task_size": {"type": "string", "enum": ["small", "medium", "large", "unknown"]},
+    "runtime_version": {"type": "string", "minLength": 15, "maxLength": 64, "pattern": "codex-cli [0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?"},
+    "status": {"type": "string", "enum": ["completed", "failed", "timed_out"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "duration_seconds": {"type": "number", "minimum": 0, "maximum": 1000000000000},
+    "turns": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+    "turns_completed": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+    "failures": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+    "collaboration_tool_calls": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+    "agent_spawn_calls": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+    "agent_spawn_completed": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+    "agent_spawn_failures": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+    "agent_dispatches_observed": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+    "unknown_events": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+    "profile_identity_verified": {"type": "boolean", "enum": [false]},
+    "tokens_input": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000000000},
+    "tokens_output": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000000000},
+    "cached_tokens_input": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000000000},
+    "reasoning_tokens_output": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000000000}
+  }
+}

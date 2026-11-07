@@ -23,6 +23,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITE = ROOT / "docs/evaluations/agent-workflow-v1.json"
+EVALUATIONS_DIR = (ROOT / "docs/evaluations").resolve()
 STATUSES = {"NOT RUN", "PENDING", "PASS", "FAIL", "BLOCKED"}
 
 
@@ -51,11 +52,34 @@ def git_bytes(*args: str) -> bytes:
     return result.stdout
 
 
-def load_suite() -> dict[str, Any]:
-    suite = json.loads(SUITE.read_text(encoding="utf-8"))
-    ids = [item.get("id") for item in suite.get("cases", [])]
-    if ids != [f"E{i}" for i in range(1, 9)]:
-        raise ValueError("suite must contain E1 through E8 once, in order")
+def suite_path(value: str | Path | None) -> Path:
+    candidate = Path(value).expanduser() if value else SUITE
+    if not candidate.is_absolute():
+        candidate = ROOT / candidate
+    candidate = candidate.resolve()
+    try:
+        candidate.relative_to(EVALUATIONS_DIR)
+    except ValueError as exc:
+        raise ValueError("suite must be a file within docs/evaluations") from exc
+    if not candidate.is_file() or candidate.suffix != ".json":
+        raise ValueError("suite must be an existing JSON file")
+    return candidate
+
+
+def load_suite(path: str | Path | None = None) -> dict[str, Any]:
+    selected_path = suite_path(path)
+    suite = json.loads(selected_path.read_text(encoding="utf-8"))
+    cases = suite.get("cases") if isinstance(suite, dict) else None
+    if not isinstance(cases, list) or any(not isinstance(item, dict) for item in cases):
+        raise ValueError("suite cases must be a list of objects")
+    ids = [item.get("id") for item in cases]
+    if not ids or any(not isinstance(value, str) or not value for value in ids) or len(ids) != len(set(ids)):
+        raise ValueError("suite must contain uniquely identified cases")
+    for item in cases:
+        if not isinstance(item, dict) or not all(isinstance(item.get(key), str) and item[key] for key in ("title", "risk", "source")):
+            raise ValueError("every suite case must define title, risk and source")
+        if not isinstance(item.get("profiles"), list) or not item["profiles"] or any(not isinstance(name, str) or not name for name in item["profiles"]):
+            raise ValueError(f"{item.get('id', 'case')}: profiles must be a non-empty list of names")
     return suite
 
 
@@ -116,7 +140,8 @@ def nonnegative_number(value: Any) -> bool:
 
 
 def prepare(args: argparse.Namespace) -> Path:
-    suite = load_suite()
+    selected_suite_path = suite_path(args.suite)
+    suite = load_suite(selected_suite_path)
     selected = set(args.case or [case["id"] for case in suite["cases"]])
     unknown = selected - {case["id"] for case in suite["cases"]}
     if unknown:
@@ -132,7 +157,8 @@ def prepare(args: argparse.Namespace) -> Path:
     run = {
         "schema_version": 1,
         "suite": suite["suite"],
-        "suite_sha256": sha256(SUITE.read_bytes()),
+        "suite_file": selected_suite_path.relative_to(ROOT).as_posix(),
+        "suite_sha256": sha256(selected_suite_path.read_bytes()),
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "repository": ROOT.name,
         "git": {"branch": git_output("branch", "--show-current"), "commit": commit, "dirty": dirty,
@@ -147,6 +173,7 @@ def prepare(args: argparse.Namespace) -> Path:
             {
                 "id": case["id"], "title": case["title"], "risk": case["risk"],
                 "required_profiles": case["profiles"], "source": case["source"],
+                **({"size": case["size"], "partition": case["partition"]} if "size" in case and "partition" in case else {}),
                 "trials": [
                     {"attempt": i + 1, "status": "NOT RUN", "profile_load_identity_verified": False,
                      "observed_profiles": {
@@ -177,10 +204,12 @@ def validate_record(path: Path) -> None:
     record = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(record, dict):
         raise ValueError("run record must be a JSON object")
-    suite = load_suite()
+    suite_file = record.get("suite_file", "docs/evaluations/agent-workflow-v1.json")
+    selected_suite_path = suite_path(suite_file)
+    suite = load_suite(selected_suite_path)
     if record.get("suite") != suite["suite"]:
         raise ValueError("record suite does not match current suite")
-    if not valid_sha(record.get("suite_sha256"), 64) or record["suite_sha256"] != sha256(SUITE.read_bytes()):
+    if not valid_sha(record.get("suite_sha256"), 64) or record["suite_sha256"] != sha256(selected_suite_path.read_bytes()):
         raise ValueError("record suite hash is stale; prepare a new run for the current suite")
     git_info = record.get("git")
     profile_info = record.get("profiles")
@@ -226,6 +255,9 @@ def validate_record(path: Path) -> None:
                 raise ValueError(f"{case_id}: {field} differs from the versioned suite")
         if case.get("required_profiles") != expected_case["profiles"]:
             raise ValueError(f"{case_id}: required_profiles differ from the versioned suite")
+        for field in ("size", "partition"):
+            if field in expected_case and case.get(field) != expected_case[field]:
+                raise ValueError(f"{case_id}: {field} differs from the versioned suite")
         trials = case.get("trials")
         if not isinstance(trials, list) or len(trials) != repetitions:
             raise ValueError(f"{case['id']}: trial count does not match requested repetitions")
@@ -382,6 +414,18 @@ def report_record(path: Path) -> None:
         duration = f"{statistics.median(durations):g} s ({len(durations)}/{len(trials)})" if durations else "N/A"
         cost = f"{statistics.median(costs):g} ({len(costs)}/{len(trials)})" if costs else "N/A"
         print(f"{case['id']} | {rate} | {consistency} | {duration} | {cost}")
+    if any("size" in case for case in record["cases"]):
+        print("\nSize | Partition | Cases | Resolved trials | Pass rate")
+        groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        for case in record["cases"]:
+            if "size" in case:
+                groups.setdefault((case["size"], case["partition"]), []).append(case)
+        for (size, partition), cases in sorted(groups.items()):
+            trials = [trial for case in cases for trial in case["trials"]]
+            resolved = [trial for trial in trials if trial["status"] in {"PASS", "FAIL"}]
+            passed = sum(trial["status"] == "PASS" for trial in resolved)
+            rate = f"{passed}/{len(resolved)}" if resolved else "N/A"
+            print(f"{size} | {partition} | {len(cases)} | {len(resolved)}/{len(trials)} | {rate}")
     print("N/A means runtime telemetry was not recorded; no cost or duration was estimated.")
 
 
@@ -393,6 +437,7 @@ def main() -> int:
     prepare_parser.add_argument("--runs", type=int, default=3, help="trials requested per case (default: 3)")
     prepare_parser.add_argument("--profiles", help="directory with TOML profiles; defaults to CODEX_HOME/agents or repo agents/")
     prepare_parser.add_argument("--output", help="output JSON path")
+    prepare_parser.add_argument("--suite", help="versioned suite JSON inside docs/evaluations; defaults to agent-workflow-v1.json")
     prepare_parser.add_argument("--allow-dirty", action="store_true", help="development-only: prepare a non-reproducible PENDING record; such a run can never PASS")
     validate_parser = subparsers.add_parser("validate", help="validate a completed or pending run record")
     validate_parser.add_argument("record", type=Path)

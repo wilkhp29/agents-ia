@@ -1,0 +1,32 @@
+version: 1
+purpose: workflow_classification_only
+warning: "Classes classify workflow risk; they do not grant or enforce tool permissions."
+default_class: A
+invalid_input_class: C
+input_contract: "Provide at least one recognized signal; unknown fields or malformed signals route to C."
+precedence: "C > B > A; any unknown or contradictory risk signal resolves to C for workflow routing."
+classes:
+  A:
+    description: "Local, reversible work within the approved scope."
+  B:
+    description: "Work with a new dependency, reversible schema/API change, repeated retry, or larger file set."
+  C:
+    description: "Sensitive paths, irreversible/external/financial action, scope expansion, major dependency/license change, or configured cost threshold."
+thresholds:
+  diff_lines: {value: 800, status: provisional_un calibrated}
+  files_touched: {value: 15, status: provisional_un calibrated}
+  cost_ratio_class_b: {value: 1.0, status: provisional_un calibrated}
+  cost_ratio_class_c: {value: 2.0, status: provisional_un calibrated}
+stop_conditions:
+  attempts_per_task: {value: 3, status: provisional_un calibrated}
+  consecutive_no_progress: {value: 2, status: provisional_un calibrated}
+  wall_clock_minutes: {value: 45, status: provisional_un calibrated}
+  cost_ratio: {value: 1.5, status: provisional_un calibrated}
+  on_stop: "Record pending reason, attempts, evidence and next action; never infer consent."
+timeouts:
+  external_or_irreversible: "wait_for_explicit_human_decision"
+  reversible_local: "timeout_records_pending_only"
+budget:
+  per_task_credits: null
+  per_day_credits: null
+  on_exceed: "stop_and_record_pending"
