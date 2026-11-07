@@ -1,0 +1,76 @@
+{
+  "envelope_version": 1,
+  "run_id": "run-demo-001",
+  "task_id": "APP-024",
+  "parent_task_id": "APP-010",
+  "phase": "task_review",
+  "status": "ready",
+  "goal": "Revisar e quebrar a história de upload em tarefas testáveis.",
+  "scope": {
+    "included": ["validar tipos e limites de arquivo", "definir testes de autorização"],
+    "excluded": ["implementar o upload neste handoff"],
+    "assumptions": ["arquivos são privados por padrão até confirmação" ]
+  },
+  "dependencies": ["APP-020: contrato de storage decidido"],
+  "data_classification": "internal",
+  "permissions": {
+    "mode": "read_only",
+    "allowed_tools": ["read_repository", "rag_search"],
+    "filesystem_roots": ["project-root"],
+    "external_effects": "none"
+  },
+  "attachments": [
+    {"uri": "brief/upload-brief.md", "sha256": null, "version": null, "excerpt": "Privacidade e limites são requisitos."},
+    {"uri": "design/upload-flow.png", "sha256": null, "version": null, "excerpt": null}
+  ],
+  "skills": [
+    {"name": "sdd-layout-ecc", "required": true, "availability": "available", "version": "unknown", "sha256": null}
+  ],
+  "rag_context": {
+    "status": "available",
+    "query_ids": ["rag-q-001"],
+    "sources": [
+      {"uri": "conhecimento/referencias/09-ciberseguranca-desenvolvimento-seguro.md#upload", "sha256": null, "version": null, "excerpt": "Validar tamanho, tipo e autorização no servidor."}
+    ],
+    "untrusted_content_notice": true
+  },
+  "provenance": {
+    "profile_id": "product-manager",
+    "profile_sha256": null,
+    "provider_model": {
+      "expected_provider": "codex",
+      "expected_model": "configured-by-runtime",
+      "observed_provider": null,
+      "observed_model": null,
+      "identity_verified": false
+    },
+    "harness": "Alethe CLI (configured at runtime)",
+    "runtime_version": null,
+    "identity_verified": false
+  },
+  "budget": {
+    "max_calls": 24,
+    "max_wall_seconds": 3600,
+    "max_reported_tokens": 120000,
+    "max_reported_cost_usd": null,
+    "enforcement_status": "reported_only"
+  },
+  "acceptance": [
+    {"criterion_id": "APP-24", "description": "A tarefa informa limites e comportamento para upload inválido.", "verification": "Revisão do critério e teste automatizado do contrato."}
+  ],
+  "output_contract": {
+    "format": "markdown",
+    "max_chars": 6000,
+    "required_fields": ["findings", "evidence", "status", "next_action"]
+  },
+  "telemetry": {
+    "input_tokens": null,
+    "output_tokens": null,
+    "reported_total": null,
+    "cost": {"reported_usd": null, "source": null, "is_estimate": null},
+    "duration_seconds": null,
+    "calls": null
+  },
+  "evidence": [],
+  "notes": ["Fixture sintética; não prova identidade nem execução real."]
+}

@@ -35,3 +35,6 @@ jobs:
 
       - name: Validate profiles, docs, and isolated installation
         run: python scripts/validate_agent_package.py
+
+      - name: Validate idea-to-delivery workflow contract
+        run: python scripts/test_delivery_workflow.py
