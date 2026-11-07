@@ -23,6 +23,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The path classifier compares the event's base and head SHAs for
+          # both PRs and pushes; the default shallow checkout may omit them.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
