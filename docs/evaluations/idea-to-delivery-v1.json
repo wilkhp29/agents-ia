@@ -1,0 +1,13 @@
+{
+  "suite": "idea-to-delivery-v1",
+  "version": 1,
+  "description": "Structural/runtime cases for multi-provider idea refinement, SDD and delivery. Presence of the playbook is not behavioral evidence.",
+  "cases": [
+    {"id":"D1","title":"Idea intake with brief and design attachments","risk":"P1","profiles":["product-lead","product-manager","product-designer"],"source":"idea-to-delivery-v1.md#d1"},
+    {"id":"D2","title":"Cross-provider refinement resolves a contradiction within two rounds","risk":"P1","profiles":["product-lead","software-architect","product-manager"],"source":"idea-to-delivery-v1.md#d2"},
+    {"id":"D3","title":"SDD traces requirements to small tasks and checks","risk":"P1","profiles":["product-lead","product-manager","software-architect","software-engineer"],"source":"idea-to-delivery-v1.md#d3"},
+    {"id":"D4","title":"Invalid task review stops after two cycles","risk":"P1","profiles":["product-lead","product-manager","software-architect"],"source":"idea-to-delivery-v1.md#d4"},
+    {"id":"D5","title":"Missing provider or unverifiable identity blocks silent fallback","risk":"P0","profiles":["product-lead"],"source":"idea-to-delivery-v1.md#d5"},
+    {"id":"D6","title":"QA fail returns to repair and rechecks the new snapshot","risk":"P1","profiles":["product-lead","software-engineer","code-reviewer","product-qa"],"source":"idea-to-delivery-v1.md#d6"}
+  ]
+}

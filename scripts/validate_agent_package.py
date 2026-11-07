@@ -396,8 +396,9 @@ def validate_json_schema_documents() -> None:
     all_schemas = {path.stem.removesuffix(".schema"): json.loads(path.read_text(encoding="utf-8"))
                    for path in schema_dir.glob("*.schema.json")}
     supported_keywords = {
-        "$ref", "$defs", "type", "enum", "minLength", "maxLength", "minimum", "maximum",
-        "minItems", "maxItems", "items", "properties", "required", "additionalProperties", "format", "pattern", "uniqueItems",
+        "$ref", "$defs", "type", "const", "enum", "oneOf", "allOf", "if", "then",
+        "minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems",
+        "items", "properties", "required", "additionalProperties", "format", "pattern", "uniqueItems",
     }
     def validate_schema_rule(rule: object, label: str, schema: dict) -> None:
         if not isinstance(rule, dict):
@@ -429,6 +430,15 @@ def validate_json_schema_documents() -> None:
                 validate_schema_rule(child, f"{label}.$defs.{name}", schema)
         if "items" in rule:
             validate_schema_rule(rule["items"], f"{label}.items", schema)
+        for keyword in ("oneOf", "allOf"):
+            if keyword in rule:
+                if not isinstance(rule[keyword], list):
+                    raise ValueError(f"{label}: {keyword} must be an array")
+                for index, child in enumerate(rule[keyword]):
+                    validate_schema_rule(child, f"{label}.{keyword}[{index}]", schema)
+        for keyword in ("if", "then"):
+            if keyword in rule:
+                validate_schema_rule(rule[keyword], f"{label}.{keyword}", schema)
 
     for schema_path in sorted(schema_dir.glob("*.schema.json")):
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
@@ -488,6 +498,18 @@ def validate_json_schema_documents() -> None:
             raise ValueError(f"{label}: invalid type")
         if "enum" in rule and value not in rule["enum"]:
             raise ValueError(f"{label}: invalid enum")
+        const_value = rule.get("const", object())
+        if "const" in rule and (isinstance(value, bool) != isinstance(const_value, bool) or value != const_value):
+            raise ValueError(f"{label}: invalid const")
+        if "oneOf" in rule:
+            matching = sum(schema_accepts(value, branch, defs, label) for branch in rule["oneOf"])
+            if matching != 1:
+                raise ValueError(f"{label}: must match exactly one oneOf branch")
+        if "allOf" in rule:
+            for branch in rule["allOf"]:
+                check_value(value, branch, defs, label)
+        if "if" in rule and schema_accepts(value, rule["if"], defs, label) and "then" in rule:
+            check_value(value, rule["then"], defs, label)
         if isinstance(value, str):
             if len(value) < rule.get("minLength", 0) or len(value) > rule.get("maxLength", float("inf")):
                 raise ValueError(f"{label}: invalid string length")
@@ -524,6 +546,29 @@ def validate_json_schema_documents() -> None:
                 raise ValueError(f"{label}: additional properties")
             for key, item in value.items():
                 if key in props: check_value(item, props[key], defs, f"{label}.{key}")
+
+    def schema_accepts(value: object, rule: dict, defs: dict, label: str) -> bool:
+        try:
+            check_value(value, rule, defs, label)
+        except ValueError:
+            return False
+        return True
+
+    # Ensure the idea-to-delivery handoff contract remains executable by this
+    # repository's JSON Schema subset validator, including provenance guards.
+    task_envelope = all_schemas["agent-task-envelope"]
+    task_example = json.loads((ROOT / "docs/agent-delivery/task-envelope.example.json").read_text(encoding="utf-8"))
+    check_value(task_example, task_envelope, task_envelope.get("$defs", {}), "agent task envelope")
+    invalid_task = json.loads(json.dumps(task_example))
+    invalid_task["envelope_version"] = True
+    try: check_value(invalid_task, task_envelope, task_envelope.get("$defs", {}), "invalid agent task envelope")
+    except ValueError: pass
+    else: raise ValueError("agent task envelope schema accepted a boolean where an integer constant is required")
+    invalid_task = json.loads(json.dumps(task_example))
+    invalid_task["provenance"]["identity_verified"] = True
+    try: check_value(invalid_task, task_envelope, task_envelope.get("$defs", {}), "unverified agent identity")
+    except ValueError: pass
+    else: raise ValueError("agent task envelope schema accepted verified identity without observed IDs")
 
     intake_schema = all_schemas["intake"]
     assumption_schema = all_schemas["assumption"]

@@ -54,5 +54,8 @@ jobs:
       - name: Validate profile and artifact package
         run: python scripts/validate_agent_package.py
 
+      - name: Validate idea-to-delivery workflow contract
+        run: python scripts/test_delivery_workflow.py
+
       - name: Enumerate pending runtime evaluations
         run: python scripts/eval_run.py --dry-run
