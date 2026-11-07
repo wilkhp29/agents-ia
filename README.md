@@ -255,6 +255,8 @@ Se `develop` ou o destino esperado não existir num outro remoto, classifique co
 
 No GitHub, a política remota deve exigir PR e os checks de CI aplicáveis em `develop` e `main`, impedir force-push e exclusão e documentar qualquer bypass. Quando houver uma única pessoa colaboradora, não exija uma segunda aprovação que impeça o próprio dono de integrar; mantenha a revisão manual do dono e os gates locais independentes de QA. Confirme as regras remotas efetivamente configuradas, pois README/TOML não as aplicam.
 
+Todo PR deve incluir exatamente um marcador `[policy-class:A|B|C]` no corpo. O CI compara a classe declarada com a classificação calculada a partir dos paths alterados; o marcador é metadado de roteamento e nunca concede autorização para ações.
+
 ### Fases, aprovações e handoffs
 
 1. Acione `product-lead` com a ideia ou mudança. Se for exploração/opinião/especificação, ele permanece na descoberta. Se o usuário pedir para construir/implementar/entregar, isso autoriza intake, refinamento, SDD e execução dentro do objetivo/limites enviados; o plano refinado é comunicado como atualização, sem aprovação redundante.
