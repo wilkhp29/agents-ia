@@ -255,6 +255,18 @@ class AppServerCaptureTests(unittest.TestCase):
         self.assertNotIn("bad", filtered)
         self.assertNotIn("run", filtered)
 
+    def test_root_inline_quoted_dotted_and_multiline_mcp_assignments_fail_closed(self):
+        unsafe_configs = [
+            '"mcp_servers" = { evil = { command = "echo", args = ["run"] } }\n',
+            'mcp_servers.evil.command = "echo"\nmcp_servers.evil.args = ["run"]\n',
+            'mcp_servers = [\n  { name = "evil", command = "echo", args = ["run"] },\n]\n',
+        ]
+        for config in unsafe_configs:
+            with self.subTest(config=config):
+                for allow in (set(), {"safe"}):
+                    with self.assertRaisesRegex(MODULE.CaptureError, "root MCP assignments"):
+                        MODULE.strip_mcp_tables(config, allow)
+
     def test_isolated_home_filters_user_mcp_without_mutating_config(self):
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp) / "codex"

@@ -233,8 +233,17 @@ def strip_mcp_tables(config_text: str, allow: set[str] | None = None) -> str:
         config = tomllib.loads(config_text)
     except tomllib.TOMLDecodeError as exc:
         raise CaptureError("Codex config is invalid TOML") from exc
-    # Parse headers with TOML itself so dotted keys inside quotes are not split.
+    # Root assignments can encode arbitrary MCP providers inline or with dotted
+    # keys; unlike provider tables, they cannot be filtered safely by allowlist.
     lines = config_text.splitlines(keepends=True)
+    first_header = next((i for i, line in enumerate(lines) if _parse_table_header(line) is not None), len(lines))
+    try:
+        root_assignments = tomllib.loads("".join(lines[:first_header]))
+    except tomllib.TOMLDecodeError as exc:
+        raise CaptureError("root Codex config assignments cannot be safely parsed") from exc
+    if "mcp_servers" in root_assignments:
+        raise CaptureError("root MCP assignments cannot be safely allowlisted")
+    # Parse headers with TOML itself so dotted keys inside quotes are not split.
     sections: list[tuple[int, int, str]] = []
     for i, line in enumerate(lines):
         parsed = _parse_table_header(line)
@@ -257,9 +266,6 @@ def strip_mcp_tables(config_text: str, allow: set[str] | None = None) -> str:
                 remove.update(range(start, end))
             elif allow is None or server not in allow:
                 remove.update(range(start, end))
-    # top-level inline assignment would be parsed but is intentionally rejected.
-    if re.search(r"(?m)^\s*mcp_servers\s*=", config_text):
-        raise CaptureError("inline MCP configuration cannot be safely filtered")
     result = "".join(line for i, line in enumerate(lines) if i not in remove)
     try:
         tomllib.loads(result)
