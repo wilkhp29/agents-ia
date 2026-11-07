@@ -718,24 +718,40 @@ def validate_agent_eval_harness() -> None:
 
         size_suite = ROOT / "docs/evaluations/delivery-size-v1.json"
         size_data = json.loads(size_suite.read_text(encoding="utf-8"))
-        if size_data.get("repetitions_default") != 3 or size_data.get("hard_fail_severities") != ["P0", "P1"]:
-            raise ValueError("delivery-size suite must pin three default repetitions and P0/P1 hard-fail")
+        repeat_ids = size_data.get("reliability_repeat_case_ids")
+        if (
+            size_data.get("repetitions_default") != 1
+            or size_data.get("reliability_repeats_default") != 0
+            or not isinstance(repeat_ids, list)
+            or size_data.get("hard_fail_severities") != ["P0", "P1"]
+        ):
+            raise ValueError("delivery-size suite must pin one primary attempt, zero default repeats, and P0/P1 hard-fail")
         size_cases = size_data.get("cases", [])
         for size in ("small", "medium", "large"):
             cases_for_size = [case for case in size_cases if case.get("size") == size]
             if len(cases_for_size) != 4 or sum(case.get("partition") == "calibration" for case in cases_for_size) != 3 or sum(case.get("partition") == "holdout" for case in cases_for_size) != 1:
                 raise ValueError(f"{size} suite must contain three calibration cases and one holdout")
+            if sum(case.get("id") in repeat_ids and case.get("partition") == "holdout" for case in cases_for_size) != 1:
+                raise ValueError(f"{size} suite must preregister exactly one holdout reliability-repeat case")
         if any(name not in {path.stem for path in AGENTS_DIR.glob("*.toml")} for case in size_cases for name in case.get("profiles", [])):
             raise ValueError("delivery-size suite references a profile missing from agents/")
         size_record = Path(temp) / "delivery-size-pending.json"
         size_prepared = subprocess.run(
             [sys.executable, str(ROOT / "scripts/agent_eval.py"), "prepare", "--suite", str(size_suite),
-             "--case", "S1", "--case", "M4", "--case", "L4", "--runs", "3", "--profiles", str(AGENTS_DIR),
+             "--case", "S4", "--case", "M4", "--case", "L4", "--reliability-repeats", "1", "--profiles", str(AGENTS_DIR),
              "--output", str(size_record), "--allow-dirty"],
             cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
         )
         if size_prepared.returncode != 0:
             raise ValueError(f"delivery-size eval prepare failed ({size_prepared.returncode}):\n{size_prepared.stdout}")
+        size_record_data = json.loads(size_record.read_text(encoding="utf-8"))
+        trial_counts = {case["id"]: len(case["trials"]) for case in size_record_data["cases"]}
+        if trial_counts != {"S4": 2, "M4": 2, "L4": 2}:
+            raise ValueError(f"delivery-size primary/reliability repeat plan mismatch: {trial_counts}")
+        for case in size_record_data["cases"]:
+            expected_purposes = ["primary", "reliability_repeat"]
+            if [trial.get("run_purpose") for trial in case["trials"]] != expected_purposes:
+                raise ValueError(f"{case['id']}: reliability repeats must be separately identified from the primary attempt")
         size_validated = subprocess.run(
             [sys.executable, str(ROOT / "scripts/agent_eval.py"), "validate", str(size_record)],
             cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,

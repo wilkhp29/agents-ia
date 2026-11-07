@@ -50,6 +50,8 @@ jobs:
           python scripts/test_policy.py
           python scripts/test_analyze_traces.py
           python scripts/test_codex_runtime_capture.py
+          python scripts/test_agent_eval.py
+          python scripts/test_codex_app_server_capture.py
 
       - name: Validate profile and artifact package
         run: python scripts/validate_agent_package.py

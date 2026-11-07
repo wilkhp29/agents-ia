@@ -2,7 +2,9 @@
   "suite": "delivery-size-v1",
   "version": 1,
   "description": "Synthetic scenario inventory by project size. Defines cases and splits only; no run outcomes or production-project references are included.",
-  "repetitions_default": 3,
+  "repetitions_default": 1,
+  "reliability_repeat_case_ids": ["S4", "M4", "L4"],
+  "reliability_repeats_default": 0,
   "hard_fail_severities": ["P0", "P1"],
   "cases": [
     {"id":"S1","size":"small","partition":"calibration","title":"Small: clarify a bounded UI defect","risk":"P2","profiles":["product-lead","software-engineer","product-qa"],"source":"delivery-size-v1.md#s1"},
