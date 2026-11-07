@@ -55,7 +55,13 @@ O instalador preserva arquivos existentes por padrão. Se houver conflito de nom
 
 Atualize o repositório via Git, revise as mudanças e execute novamente o instalador. Use `--replace` somente se aceitar substituir os agentes de mesmo nome.
 
-## Piloto de orquestração no Codex CLI
+## Orquestração nativa e piloto do Codex CLI
+
+Há dois caminhos distintos. **A orquestração nativa do host Codex** usa as ferramentas de colaboração disponíveis na sessão para iniciar um perfil nomeado; ela não passa pelo adaptador CLI. Em 2026-11-06, um smoke sintético neste host chamou `collaboration.spawn_agent` com `agent_type="intake-normalizer"`, sem edição de arquivos, e recebeu um intake estruturado com objetivo, lacunas e premissas. Isso demonstra despacho por nome e saída compatível com o papel nesta sessão. Não demonstra hash ou conteúdo exato do TOML carregado; o agente também declarou que sua identidade de perfil não estava disponível. Portanto, avaliação de identidade/hash segue `PENDING`. O registro minimizado está em [runtime smoke 2026-11-06](docs/evaluations/runtime-smoke-2026-11-06.md).
+
+O **adaptador `codex exec`** descrito abaixo é um caminho separado de execução e observabilidade. Ele captura somente tarefas que passam pelo wrapper. Seu JSONL não identifica o papel carregado, e o smoke mais recente não provou `spawn_agent` nem receptor. Não use os resultados CLI como evidência de despacho nativo no Codex Desktop/host, nem o smoke nativo como prova de que o adaptador CLI despacha ou identifica perfis.
+
+### Instrumentação do Codex CLI
 
 `.codex/config.toml` ativa `[features].multi_agent`, registra 14 papéis de projeto apontando para TOMLs versionados em `agents/` e configura três subagentes concorrentes; os sete papéis EGM são opcionais e devem ser chamados somente quando reduzirem incerteza. `agents.max_depth = 1` limita a profundidade do backend V1; Codex V2 pode ignorar esse limite. O coordenador é o agente raiz da sessão. Configuração não prova quais perfis o runtime carregou.
 
