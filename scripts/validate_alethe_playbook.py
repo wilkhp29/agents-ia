@@ -31,6 +31,18 @@ def git_value(repo: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def verify_pinned_source(repo: Path, commit: str, relative_path: Path) -> str:
+    """Require the imported working-tree source to match the pinned Git blob."""
+    relative_path = Path(relative_path)
+    expected_blob = git_value(repo, "rev-parse", f"{commit}:{relative_path.as_posix()}")
+    actual_blob = git_value(repo, "hash-object", "--", relative_path.as_posix())
+    if actual_blob != expected_blob:
+        raise ValueError(
+            f"working-tree source differs from pinned blob for {relative_path.as_posix()}"
+        )
+    return actual_blob
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--alethe-skill-path", required=True, type=Path, help="Path to the pinned Alethe skills/alethe directory")
@@ -46,6 +58,7 @@ def main() -> int:
     source = skill / "scripts/orchestrate.py"
     if not source.is_file():
         raise ValueError(f"Alethe parser not found: {source}")
+    verify_pinned_source(repo, EXPECTED_COMMIT, Path("skills/alethe/scripts/orchestrate.py"))
     spec = importlib.util.spec_from_file_location("alethe_upstream_orchestrate", source)
     if spec is None or spec.loader is None:
         raise ValueError("cannot load pinned Alethe parser")

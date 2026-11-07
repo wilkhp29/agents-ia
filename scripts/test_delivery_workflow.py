@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import re
+import subprocess
+import tempfile
 import tomllib
 import unittest
 from pathlib import Path
@@ -70,6 +73,12 @@ def schema_errors(value, schema, root_schema, path="$", depth=0):
             errors.append(f"{path}: below minimum")
         if value > schema.get("maximum", float("inf")) or value >= schema.get("exclusiveMaximum", float("inf")):
             errors.append(f"{path}: above maximum")
+    if "if" in schema and not schema_errors(value, schema["if"], root_schema, path, depth + 1):
+        if "then" in schema:
+            errors.extend(schema_errors(value, schema["then"], root_schema, path, depth + 1))
+    if "allOf" in schema:
+        for branch in schema["allOf"]:
+            errors.extend(schema_errors(value, branch, root_schema, path, depth + 1))
     return errors
 
 
@@ -96,6 +105,59 @@ class DeliveryWorkflowTests(unittest.TestCase):
         self.assertTrue(any("unknown field" in error for error in errors))
         self.assertTrue(any("below minimum" in error for error in errors))
         self.assertTrue(any("above maximum" in error for error in errors))
+
+    def test_identity_flags_require_matching_verified_observed_ids(self):
+        schema = json.loads((ROOT / "schemas/agent-task-envelope.schema.json").read_text())
+        example = json.loads((ROOT / "docs/agent-delivery/task-envelope.example.json").read_text())
+        provider_model = example["provenance"]["provider_model"]
+
+        example["provenance"]["identity_verified"] = True
+        errors = schema_errors(example, schema, schema)
+        self.assertTrue(errors)
+
+        example["provenance"]["identity_verified"] = False
+        provider_model["identity_verified"] = True
+        errors = schema_errors(example, schema, schema)
+        self.assertTrue(errors)
+
+        example["provenance"]["identity_verified"] = True
+        provider_model.update({
+            "observed_provider": "codex",
+            "observed_model": "configured-model-id",
+            "identity_verified": True,
+        })
+        self.assertEqual(schema_errors(example, schema, schema), [])
+
+    def test_nullable_strings_reject_empty_identity_metadata_but_allow_null(self):
+        schema = json.loads((ROOT / "schemas/agent-task-envelope.schema.json").read_text())
+        example = json.loads((ROOT / "docs/agent-delivery/task-envelope.example.json").read_text())
+
+        # Null is the explicit representation for unavailable/unknown metadata.
+        example["provenance"]["profile_id"] = None
+        example["provenance"]["provider_model"]["expected_provider"] = None
+        example["provenance"]["provider_model"]["expected_model"] = None
+        example["provenance"]["harness"] = None
+        example["provenance"]["runtime_version"] = None
+        example["skills"][0]["version"] = None
+        example["attachments"][0]["version"] = None
+        example["telemetry"]["cost"]["source"] = None
+        self.assertEqual(schema_errors(example, schema, schema), [])
+
+        cases = (
+            ("provenance", "profile_id"),
+            ("provenance", "provider_model", "expected_provider"),
+            ("provenance", "provider_model", "expected_model"),
+            ("provenance", "provider_model", "observed_provider"),
+            ("provenance", "provider_model", "observed_model"),
+        )
+        for path in cases:
+            candidate = json.loads((ROOT / "docs/agent-delivery/task-envelope.example.json").read_text())
+            target = candidate
+            for part in path[:-1]:
+                target = target[part]
+            target[path[-1]] = ""
+            with self.subTest(path=path):
+                self.assertTrue(schema_errors(candidate, schema, schema))
 
     def test_eval_cases_cover_idea_to_delivery_failure_modes(self):
         inventory = json.loads((ROOT / "docs/evaluations/idea-to-delivery-v1.json").read_text())
@@ -141,6 +203,40 @@ class DeliveryWorkflowTests(unittest.TestCase):
         repair = phase_by_id["task_repair"]
         self.assertIn("without relying on or reading Codex's concurrent review", claude_review)
         self.assertIn("Synthesize both independent provider review reports", repair)
+
+    def test_pinned_alethe_source_rejects_modified_working_tree_before_import(self):
+        spec = importlib.util.spec_from_file_location(
+            "validate_alethe_playbook", ROOT / "scripts/validate_alethe_playbook.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            source_rel = Path("skills/alethe/scripts/orchestrate.py")
+            source = repo / source_rel
+            source.parent.mkdir(parents=True)
+            source.write_text("ORIGINAL = True\n", encoding="utf-8")
+
+            def git(*args):
+                result = subprocess.run(
+                    ["git", "-C", str(repo), *args], text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return result.stdout.strip()
+
+            git("init", "-q")
+            git("config", "user.email", "fixture@example.invalid")
+            git("config", "user.name", "Fixture")
+            git("add", source_rel.as_posix())
+            git("commit", "-qm", "pin source fixture")
+            commit = git("rev-parse", "HEAD")
+
+            module.verify_pinned_source(repo, commit, source_rel)
+            source.write_text("ORIGINAL = False\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "working-tree source differs"):
+                module.verify_pinned_source(repo, commit, source_rel)
 
     def test_product_lead_contract_references_delivery_envelope_and_gates(self):
         profile = tomllib.loads((ROOT / "agents/product-lead.toml").read_text())

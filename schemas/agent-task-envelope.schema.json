@@ -47,7 +47,7 @@
           "name": { "type": "string", "minLength": 1 },
           "required": { "type": "boolean" },
           "availability": { "enum": ["available", "missing", "unknown"] },
-          "version": { "type": ["string", "null"] },
+          "version": { "type": ["string", "null"], "minLength": 1 },
           "sha256": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }] }
         }
       }
@@ -66,23 +66,64 @@
       "type": "object", "additionalProperties": false,
       "required": ["profile_id", "profile_sha256", "provider_model", "harness", "runtime_version", "identity_verified"],
       "properties": {
-        "profile_id": { "type": ["string", "null"] },
+        "profile_id": { "type": ["string", "null"], "minLength": 1 },
         "profile_sha256": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }] },
         "provider_model": {
           "type": "object", "additionalProperties": false,
           "required": ["expected_provider", "expected_model", "observed_provider", "observed_model", "identity_verified"],
           "properties": {
-            "expected_provider": { "type": ["string", "null"] },
-            "expected_model": { "type": ["string", "null"] },
-            "observed_provider": { "type": ["string", "null"] },
-            "observed_model": { "type": ["string", "null"] },
+            "expected_provider": { "type": ["string", "null"], "minLength": 1 },
+            "expected_model": { "type": ["string", "null"], "minLength": 1 },
+            "observed_provider": { "type": ["string", "null"], "minLength": 1 },
+            "observed_model": { "type": ["string", "null"], "minLength": 1 },
             "identity_verified": { "type": "boolean" }
           }
         },
-        "harness": { "type": ["string", "null"] },
-        "runtime_version": { "type": ["string", "null"] },
+        "harness": { "type": ["string", "null"], "minLength": 1 },
+        "runtime_version": { "type": ["string", "null"], "minLength": 1 },
         "identity_verified": { "type": "boolean" }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "identity_verified": { "const": true } },
+            "required": ["identity_verified"]
+          },
+          "then": {
+            "properties": {
+              "provider_model": {
+                "properties": {
+                  "observed_provider": { "type": "string", "minLength": 1 },
+                  "observed_model": { "type": "string", "minLength": 1 },
+                  "identity_verified": { "const": true }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "provider_model": {
+                "properties": { "identity_verified": { "const": true } },
+                "required": ["identity_verified"]
+              }
+            },
+            "required": ["provider_model"]
+          },
+          "then": {
+            "properties": {
+              "identity_verified": { "const": true },
+              "provider_model": {
+                "properties": {
+                  "observed_provider": { "type": "string", "minLength": 1 },
+                  "observed_model": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "budget": {
       "type": "object", "additionalProperties": false,
@@ -127,7 +168,7 @@
           "required": ["reported_usd", "source", "is_estimate"],
           "properties": {
             "reported_usd": { "type": ["number", "null"], "minimum": 0 },
-            "source": { "type": ["string", "null"] },
+            "source": { "type": ["string", "null"], "minLength": 1 },
             "is_estimate": { "type": ["boolean", "null"] }
           }
         },
@@ -147,7 +188,7 @@
       "properties": {
         "uri": { "type": "string", "minLength": 1, "maxLength": 2048 },
         "sha256": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }] },
-        "version": { "type": ["string", "null"] },
+      "version": { "type": ["string", "null"], "minLength": 1 },
         "excerpt": { "type": ["string", "null"], "maxLength": 12000 }
       }
     }
